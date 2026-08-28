@@ -5,7 +5,8 @@ import toast from 'react-hot-toast';
 import {
   LayoutTemplate, ShieldCheck, ShieldAlert,
   Plus, RefreshCw, ArrowLeft, Image as ImageIcon,
-  CheckCircle, Smartphone
+  CheckCircle, Smartphone, Trash2, Link as LinkIcon,
+  Phone, MessageSquare, AlertCircle
 } from 'lucide-react';
 
 /* ── User-Provided Styled Action Button ────────── */
@@ -94,17 +95,21 @@ export default function TemplateList() {
   // Form State
   const [formData, setFormData] = useState({
     name: '',
-    category: 'MARKETING',
-    language: 'en_US',
-    headerType: 'NONE', // NONE, TEXT, IMAGE
+    category: 'MARKETING', // MARKETING or UTILITY
+    language: 'en_US',     // English only
+    headerType: 'IMAGE',   // Default to IMAGE for marketing
     headerText: '',
-    bodyText: 'Hello {{1}}, welcome to Zest Eat! Check out our special offers today.',
-    footerText: 'Zest Eat • Reply STOP to opt-out',
-    buttonText: 'Order Now',
-    buttonUrl: 'https://zest-eat.com',
+    bodyText: 'Hello {{1}}, check out our special fresh offers at Zest Eat today! Valid until midnight.',
+    footerText: 'Zest Eat • Reply STOP to unsubscribe',
   });
+
   const [headerImage, setHeaderImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+
+  // Dynamic Multi-Button State
+  const [buttons, setButtons] = useState([
+    { id: 1, type: 'QUICK_REPLY', text: 'Order Now', url: '', phoneNumber: '' }
+  ]);
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -144,6 +149,26 @@ export default function TemplateList() {
     }
   };
 
+  // Category switch handler: customize defaults by category
+  const handleCategoryChange = (cat) => {
+    if (cat === 'MARKETING') {
+      setFormData((prev) => ({
+        ...prev,
+        category: cat,
+        headerType: 'IMAGE',
+        bodyText: prev.bodyText || 'Special discount! Get 20% off on fresh meat this weekend. Use code ZEST20.',
+      }));
+    } else {
+      // UTILITY
+      setFormData((prev) => ({
+        ...prev,
+        category: cat,
+        headerType: 'NONE',
+        bodyText: prev.bodyText || 'Your order {{1}} from Zest Eat has been confirmed and is being prepared.',
+      }));
+    }
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -152,17 +177,39 @@ export default function TemplateList() {
     }
   };
 
+  // ── Dynamic Button Handlers ──────────────────
+  const handleAddButton = () => {
+    if (buttons.length >= 3) {
+      toast.error('Maximum 3 buttons allowed by WhatsApp template guidelines');
+      return;
+    }
+    const newId = Date.now();
+    setButtons([
+      ...buttons,
+      { id: newId, type: 'QUICK_REPLY', text: `Action ${buttons.length + 1}`, url: 'https://zest-eat.com', phoneNumber: '' }
+    ]);
+  };
+
+  const handleRemoveButton = (id) => {
+    setButtons(buttons.filter((b) => b.id !== id));
+  };
+
+  const handleUpdateButton = (id, field, val) => {
+    setButtons(buttons.map((b) => (b.id === id ? { ...b, [field]: val } : b)));
+  };
+
+  // ── Submit Template ───────────────────────────
   const handleSubmitTemplate = async (e) => {
     e.preventDefault();
 
     const formattedName = formData.name.trim().toLowerCase().replace(/\s+/g, '_');
     if (!formattedName) {
-      toast.error('Please enter a valid template name');
+      toast.error('Please enter a template name');
       return;
     }
 
     if (!formData.bodyText.trim()) {
-      toast.error('Body text is required');
+      toast.error('Body message is required');
       return;
     }
 
@@ -170,7 +217,7 @@ export default function TemplateList() {
     try {
       const components = [];
 
-      // Header component
+      // 1. Header component
       if (formData.headerType === 'TEXT' && formData.headerText.trim()) {
         components.push({
           type: 'HEADER',
@@ -184,13 +231,13 @@ export default function TemplateList() {
         });
       }
 
-      // Body component
+      // 2. Body component
       components.push({
         type: 'BODY',
         text: formData.bodyText.trim(),
       });
 
-      // Footer component
+      // 3. Footer component
       if (formData.footerText.trim()) {
         components.push({
           type: 'FOOTER',
@@ -198,17 +245,31 @@ export default function TemplateList() {
         });
       }
 
-      // Button component
-      if (formData.buttonText.trim()) {
+      // 4. Buttons component (Packaging all dynamic buttons)
+      const validButtons = buttons.filter((b) => b.text && b.text.trim());
+      if (validButtons.length > 0) {
         components.push({
           type: 'BUTTONS',
-          buttons: [
-            {
-              type: 'URL',
-              text: formData.buttonText.trim(),
-              url: formData.buttonUrl.trim() || 'https://zest-eat.com',
-            },
-          ],
+          buttons: validButtons.map((b) => {
+            if (b.type === 'URL') {
+              return {
+                type: 'URL',
+                text: b.text.trim(),
+                url: b.url.trim() || 'https://zest-eat.com',
+              };
+            }
+            if (b.type === 'PHONE_NUMBER') {
+              return {
+                type: 'PHONE_NUMBER',
+                text: b.text.trim(),
+                phone_number: b.phoneNumber.trim() || '+919876543210',
+              };
+            }
+            return {
+              type: 'QUICK_REPLY',
+              text: b.text.trim(),
+            };
+          }),
         });
       }
 
@@ -233,13 +294,12 @@ export default function TemplateList() {
           name: '',
           category: 'MARKETING',
           language: 'en_US',
-          headerType: 'NONE',
+          headerType: 'IMAGE',
           headerText: '',
-          bodyText: 'Hello {{1}}, welcome to Zest Eat! Check out our special offers today.',
-          footerText: 'Zest Eat • Reply STOP to opt-out',
-          buttonText: 'Order Now',
-          buttonUrl: 'https://zest-eat.com',
+          bodyText: 'Hello {{1}}, check out our special fresh offers at Zest Eat today!',
+          footerText: 'Zest Eat • Reply STOP to unsubscribe',
         });
+        setButtons([{ id: 1, type: 'QUICK_REPLY', text: 'Order Now', url: '', phoneNumber: '' }]);
         setHeaderImage(null);
         setImagePreview(null);
         loadTemplates();
@@ -260,7 +320,7 @@ export default function TemplateList() {
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 16,
-          marginBottom: 20,
+          marginBottom: 22,
         }}
       >
         <div>
@@ -280,7 +340,7 @@ export default function TemplateList() {
             WhatsApp Templates
           </h1>
           <p style={{ color: '#64748b', fontSize: 14, margin: '4px 0 0 0' }}>
-            Manage, build, and synchronize your WhatsApp marketing & utility templates
+            Manage, build, and synchronize your WhatsApp templates right here on Zest Eat
           </p>
         </div>
 
@@ -301,6 +361,7 @@ export default function TemplateList() {
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
               }}
             >
               <ArrowLeft size={16} /> Back to Templates
@@ -328,7 +389,7 @@ export default function TemplateList() {
         </div>
       </div>
 
-      {/* ── Form Section (Inside Own Website) ────────── */}
+      {/* ── Category-Wise Template Builder Form ─────── */}
       {showForm ? (
         <div
           style={{
@@ -337,7 +398,7 @@ export default function TemplateList() {
             gap: 24,
           }}
         >
-          {/* Left: Template Builder Form */}
+          {/* Left: Category-Wise Template Form */}
           <div
             style={{
               background: '#ffffff',
@@ -347,52 +408,70 @@ export default function TemplateList() {
               boxShadow: '0 1px 3px rgba(0,0,0,0.02), 0 4px 12px -2px rgba(0,0,0,0.03)',
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', margin: '0 0 4px 0' }}>
-              Create New WhatsApp Template
-            </h2>
-            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px 0' }}>
-              Create your template right here on Zest Eat. Once created, it syncs directly with your account.
-            </p>
+            <div style={{ marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+                Create Category-Wise Template
+              </h2>
+              <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+                Build your WhatsApp message with media upload and interactive call-to-action buttons.
+              </p>
+            </div>
 
-            <form onSubmit={handleSubmitTemplate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Template Name */}
+            <form onSubmit={handleSubmitTemplate} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {/* Category Selector Tabs */}
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                  TEMPLATE NAME <span style={{ color: '#ef4444' }}>*</span>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.5px' }}>
+                  SELECT CATEGORY
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. fresh_meat_weekend_deal"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })
-                  }
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    border: '1px solid #cbd5e1',
-                    fontSize: 14,
-                    color: '#0f172a',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                <span style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, display: 'block' }}>
-                  Only lowercase letters, numbers, and underscores allowed
-                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleCategoryChange('MARKETING')}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      border: formData.category === 'MARKETING' ? '2px solid #0f172a' : '1px solid #e2e8f0',
+                      background: formData.category === 'MARKETING' ? '#f8fafc' : '#ffffff',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14 }}>🎯 Marketing</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Upload media banners, offers & promos</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCategoryChange('UTILITY')}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      border: formData.category === 'UTILITY' ? '2px solid #0f172a' : '1px solid #e2e8f0',
+                      background: formData.category === 'UTILITY' ? '#f8fafc' : '#ffffff',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14 }}>⚡ Utility</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Order confirmations & alerts</div>
+                  </button>
+                </div>
               </div>
 
-              {/* Category & Language */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {/* Template Name & Language (English Only) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                    CATEGORY
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.5px' }}>
+                    TEMPLATE NAME <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  <input
+                    type="text"
+                    placeholder="e.g. festive_weekend_special"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })
+                    }
+                    required
                     style={{
                       width: '100%',
                       padding: '10px 14px',
@@ -400,19 +479,17 @@ export default function TemplateList() {
                       border: '1px solid #cbd5e1',
                       fontSize: 14,
                       color: '#0f172a',
-                      background: '#fff',
                       boxSizing: 'border-box',
                     }}
-                  >
-                    <option value="MARKETING">MARKETING</option>
-                    <option value="UTILITY">UTILITY</option>
-                    <option value="AUTHENTICATION">AUTHENTICATION</option>
-                  </select>
+                  />
+                  <span style={{ fontSize: 11, color: '#94a3b8', marginTop: 3, display: 'block' }}>
+                    lowercase and underscores only
+                  </span>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                    LANGUAGE
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.5px' }}>
+                    LANGUAGE (ENGLISH ONLY)
                   </label>
                   <select
                     value={formData.language}
@@ -429,45 +506,84 @@ export default function TemplateList() {
                     }}
                   >
                     <option value="en_US">English (en_US)</option>
-                    <option value="en">English (en)</option>
-                    <option value="hi">Hindi (hi)</option>
-                    <option value="es">Spanish (es)</option>
-                    <option value="ar">Arabic (ar)</option>
+                    <option value="en">English (Global)</option>
                   </select>
                 </div>
               </div>
 
-              {/* Header Selection */}
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                  HEADER TYPE
-                </label>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  {['NONE', 'TEXT', 'IMAGE'].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, headerType: type })}
+              {/* Header Section (Category-Specific: Marketing Media Upload) */}
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #eef2f6',
+                  borderRadius: 12,
+                  padding: 16,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    HEADER {formData.category === 'MARKETING' ? '(RECOMMENDED: UPLOAD MEDIA)' : '(OPTIONAL)'}
+                  </label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {['NONE', 'IMAGE', 'TEXT'].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, headerType: type })}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: 6,
+                          border: formData.headerType === type ? '2px solid #0f172a' : '1px solid #e2e8f0',
+                          background: formData.headerType === type ? '#ffffff' : 'transparent',
+                          color: formData.headerType === type ? '#0f172a' : '#64748b',
+                          fontWeight: 700,
+                          fontSize: 11,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {formData.headerType === 'IMAGE' && (
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      style={{ display: 'none' }}
+                      id="marketing-image-upload"
+                    />
+                    <label
+                      htmlFor="marketing-image-upload"
                       style={{
-                        padding: '6px 14px',
-                        borderRadius: 6,
-                        border: formData.headerType === type ? '2px solid #183153' : '1px solid #e2e8f0',
-                        background: formData.headerType === type ? '#f0f9ff' : '#ffffff',
-                        color: formData.headerType === type ? '#183153' : '#64748b',
-                        fontWeight: 600,
-                        fontSize: 12,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '18px',
+                        border: '2px dashed #cbd5e1',
+                        borderRadius: 8,
+                        background: '#ffffff',
                         cursor: 'pointer',
+                        gap: 6,
                       }}
                     >
-                      {type}
-                    </button>
-                  ))}
-                </div>
+                      <ImageIcon size={28} color="#0284c7" />
+                      <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
+                        {headerImage ? headerImage.name : 'Click to Upload Marketing Banner / Image'}
+                      </span>
+                      <span style={{ fontSize: 11, color: '#94a3b8' }}>Supports JPG, PNG (Max 5MB)</span>
+                    </label>
+                  </div>
+                )}
 
                 {formData.headerType === 'TEXT' && (
                   <input
                     type="text"
-                    placeholder="e.g. Special Weekend Deal!"
+                    placeholder="e.g. Weekend Flash Sale Alert!"
                     value={formData.headerText}
                     onChange={(e) => setFormData({ ...formData, headerText: e.target.value })}
                     style={{
@@ -476,44 +592,24 @@ export default function TemplateList() {
                       borderRadius: 8,
                       border: '1px solid #cbd5e1',
                       fontSize: 14,
+                      background: '#fff',
                       boxSizing: 'border-box',
                     }}
                   />
                 )}
-
-                {formData.headerType === 'IMAGE' && (
-                  <div
-                    style={{
-                      border: '2px dashed #cbd5e1',
-                      borderRadius: 8,
-                      padding: 14,
-                      textAlign: 'center',
-                      background: '#f8fafc',
-                    }}
-                  >
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      style={{ display: 'none' }}
-                      id="template-img-input"
-                    />
-                    <label htmlFor="template-img-input" style={{ cursor: 'pointer', color: '#183153', fontWeight: 600, fontSize: 13 }}>
-                      <ImageIcon size={20} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-                      {headerImage ? headerImage.name : 'Upload Header Image Banner'}
-                    </label>
-                  </div>
-                )}
               </div>
 
-              {/* Body Text */}
+              {/* Body Message */}
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                  BODY MESSAGE <span style={{ color: '#ef4444' }}>*</span>
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    BODY MESSAGE <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <span style={{ fontSize: 11, color: '#64748b' }}>Use &#123;&#123;1&#125;&#125;, &#123;&#123;2&#125;&#125; for customer variables</span>
+                </div>
                 <textarea
                   rows={4}
-                  placeholder="Enter message content... You can use {{1}}, {{2}} for custom variables"
+                  placeholder="Enter message text..."
                   value={formData.bodyText}
                   onChange={(e) => setFormData({ ...formData, bodyText: e.target.value })}
                   required
@@ -524,21 +620,20 @@ export default function TemplateList() {
                     border: '1px solid #cbd5e1',
                     fontSize: 14,
                     color: '#0f172a',
-                    outline: 'none',
-                    boxSizing: 'border-box',
                     fontFamily: 'inherit',
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
 
               {/* Footer Text */}
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.5px' }}>
                   FOOTER (OPTIONAL)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Zest Eat • Reply STOP to unsubscribe"
+                  placeholder="e.g. Zest Eat • Taste the Freshness"
                   value={formData.footerText}
                   onChange={(e) => setFormData({ ...formData, footerText: e.target.value })}
                   style={{
@@ -552,51 +647,165 @@ export default function TemplateList() {
                 />
               </div>
 
-              {/* Action Button Details */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                    BUTTON TEXT
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Order Now"
-                    value={formData.buttonText}
-                    onChange={(e) => setFormData({ ...formData, buttonText: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: 8,
-                      border: '1px solid #cbd5e1',
-                      fontSize: 14,
-                      boxSizing: 'border-box',
-                    }}
-                  />
+              {/* ── Dynamic Multi-Button Section ────────── */}
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #eef2f6',
+                  borderRadius: 12,
+                  padding: 16,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      INTERACTIVE BUTTONS ({buttons.length}/3)
+                    </span>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0 0' }}>
+                      Add Quick Replies or Call-To-Action buttons
+                    </p>
+                  </div>
+
+                  {buttons.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={handleAddButton}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 14px',
+                        background: '#0f172a',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Plus size={14} /> Add Button
+                    </button>
+                  )}
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                    BUTTON URL
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://zest-eat.com"
-                    value={formData.buttonUrl}
-                    onChange={(e) => setFormData({ ...formData, buttonUrl: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: 8,
-                      border: '1px solid #cbd5e1',
-                      fontSize: 14,
-                      boxSizing: 'border-box',
-                    }}
-                  />
+                {/* List of Added Buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {buttons.map((btn, index) => (
+                    <div
+                      key={btn.id}
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 8,
+                        padding: 12,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>
+                          Button #{index + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveButton(btn.id)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: 4,
+                          }}
+                          title="Remove Button"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8 }}>
+                        <select
+                          value={btn.type}
+                          onChange={(e) => handleUpdateButton(btn.id, 'type', e.target.value)}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: 6,
+                            border: '1px solid #cbd5e1',
+                            fontSize: 12,
+                            background: '#fff',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <option value="QUICK_REPLY">Quick Reply</option>
+                          <option value="URL">Visit URL</option>
+                          <option value="PHONE_NUMBER">Call Phone</option>
+                        </select>
+
+                        <input
+                          type="text"
+                          placeholder="Button label (e.g. Order Now)"
+                          value={btn.text}
+                          onChange={(e) => handleUpdateButton(btn.id, 'text', e.target.value)}
+                          maxLength={25}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            border: '1px solid #cbd5e1',
+                            fontSize: 13,
+                          }}
+                        />
+                      </div>
+
+                      {btn.type === 'URL' && (
+                        <input
+                          type="url"
+                          placeholder="Website URL (e.g. https://zest-eat.com/menu)"
+                          value={btn.url}
+                          onChange={(e) => handleUpdateButton(btn.id, 'url', e.target.value)}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            border: '1px solid #cbd5e1',
+                            fontSize: 13,
+                          }}
+                        />
+                      )}
+
+                      {btn.type === 'PHONE_NUMBER' && (
+                        <input
+                          type="tel"
+                          placeholder="Phone number with country code (e.g. +919876543210)"
+                          value={btn.phoneNumber}
+                          onChange={(e) => handleUpdateButton(btn.id, 'phoneNumber', e.target.value)}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            border: '1px solid #cbd5e1',
+                            fontSize: 13,
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+
+                  {buttons.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '12px', color: '#94a3b8', fontSize: 13 }}>
+                      No buttons added yet. Click <strong>+ Add Button</strong> above.
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Submit Row with Styled Button */}
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 10 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 8 }}>
                 <StyledWrapper>
                   <button type="submit" disabled={submitting}>
                     <span>
@@ -626,7 +835,7 @@ export default function TemplateList() {
             </form>
           </div>
 
-          {/* Right: Live Interactive WhatsApp Mockup Preview */}
+          {/* Right: Real-time WhatsApp Mockup Preview */}
           <div
             style={{
               background: '#ffffff',
@@ -640,7 +849,9 @@ export default function TemplateList() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <Smartphone size={18} color="#0f172a" />
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Live WhatsApp Preview</h3>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                Live WhatsApp Mockup
+              </h3>
             </div>
 
             <div
@@ -652,7 +863,7 @@ export default function TemplateList() {
                 display: 'flex',
                 alignItems: 'flex-start',
                 justifyContent: 'flex-start',
-                minHeight: 340,
+                minHeight: 380,
                 backgroundImage: 'radial-gradient(#d1d7db 1px, transparent 1px)',
                 backgroundSize: '16px 16px',
               }}
@@ -682,9 +893,12 @@ export default function TemplateList() {
                     }}
                   >
                     {imagePreview ? (
-                      <img src={imagePreview} alt="Header Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={imagePreview} alt="Header Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <span style={{ fontSize: 12, fontWeight: 600 }}>Header Image Preview</span>
+                      <div style={{ textAlign: 'center' }}>
+                        <ImageIcon size={24} style={{ margin: '0 auto 4px' }} />
+                        <span style={{ fontSize: 12, fontWeight: 600, display: 'block' }}>Marketing Image Banner</span>
+                      </div>
                     )}
                   </div>
                 )}
@@ -692,14 +906,14 @@ export default function TemplateList() {
                 <div style={{ padding: 12 }}>
                   {/* Header Text Preview */}
                   {formData.headerType === 'TEXT' && formData.headerText && (
-                    <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a', marginBottom: 6 }}>
                       {formData.headerText}
                     </div>
                   )}
 
                   {/* Body Preview */}
                   <div style={{ fontSize: 13.5, color: '#111827', whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>
-                    {formData.bodyText || 'Your message body will appear here...'}
+                    {formData.bodyText || 'Your message text will appear here...'}
                   </div>
 
                   {/* Footer Preview */}
@@ -708,9 +922,10 @@ export default function TemplateList() {
                   )}
                 </div>
 
-                {/* Button Preview */}
-                {formData.buttonText && (
+                {/* ── ALL Live Interactive Buttons in Preview ── */}
+                {buttons.map((btn, idx) => (
                   <div
+                    key={btn.id || idx}
                     style={{
                       borderTop: '1px solid #f1f5f9',
                       padding: '10px 14px',
@@ -724,9 +939,12 @@ export default function TemplateList() {
                       gap: 6,
                     }}
                   >
-                    🔗 {formData.buttonText}
+                    {btn.type === 'URL' && <LinkIcon size={14} />}
+                    {btn.type === 'PHONE_NUMBER' && <Phone size={14} />}
+                    {btn.type === 'QUICK_REPLY' && <MessageSquare size={14} />}
+                    <span>{btn.text || `Action Button ${idx + 1}`}</span>
                   </div>
-                )}
+                ))}
               </div>
             </div>
           </div>
@@ -780,7 +998,17 @@ export default function TemplateList() {
                     <tr key={t._id} style={{ borderBottom: '1px solid #f8fafc' }}>
                       <td style={{ padding: '16px', fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{t.name}</td>
                       <td style={{ padding: '16px', color: '#64748b', fontSize: 13 }}>
-                        <span style={{ background: '#f8fafc', padding: '4px 8px', borderRadius: 6, border: '1px solid #f1f5f9', fontWeight: 600 }}>
+                        <span
+                          style={{
+                            background: t.category === 'MARKETING' ? '#f0fdf4' : '#f8fafc',
+                            color: t.category === 'MARKETING' ? '#16a34a' : '#475569',
+                            padding: '4px 10px',
+                            borderRadius: 6,
+                            border: '1px solid #e2e8f0',
+                            fontWeight: 700,
+                            fontSize: 11,
+                          }}
+                        >
                           {t.category || 'MARKETING'}
                         </span>
                       </td>

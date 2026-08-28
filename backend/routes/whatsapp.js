@@ -1,7 +1,6 @@
 const express = require('express');
 const router  = express.Router();
 const { getStatus } = require('../utils/whatsappService');
-const { ConversationFlow } = require('../utils/conversationFlow');
 const MessageLog = require('../models/MessageLog');
 
 // ── GET current status ────────────────────────────────────────────────────────
@@ -50,6 +49,7 @@ router.post('/webhook', async (req, res) => {
     let body = req.body;
 
     if (body.object) {
+      // 1. Acknowledge incoming messages silently so Meta doesn't retry
       if (
         body.entry &&
         body.entry[0].changes &&
@@ -57,42 +57,11 @@ router.post('/webhook', async (req, res) => {
         body.entry[0].changes[0].value.messages &&
         body.entry[0].changes[0].value.messages[0]
       ) {
-        let phone_number_id = body.entry[0].changes[0].value.metadata.phone_number_id;
-        let msg = body.entry[0].changes[0].value.messages[0];
-        
-        let from = msg.from; // Sender's phone number
-        
-        let msgBody = '';
-        let type = 'chat';
-        
-        if (msg.type === 'text') {
-          msgBody = msg.text.body;
-        } else if (msg.type === 'interactive') {
-          type = msg.interactive.type;
-          if (type === 'button_reply') {
-            type = 'buttons_response';
-            msgBody = msg.interactive.button_reply.id;
-          } else if (type === 'list_reply') {
-            type = 'list_response';
-            msgBody = msg.interactive.list_reply.id;
-          }
-        } else {
-          msgBody = ''; // Unsupported message type
-        }
-
-        const normalized = {
-          from,
-          body: msgBody,
-          type,
-          isGroupMsg: false // Meta Cloud API doesn't support groups yet
-        };
-
-        if (normalized.body) {
-          await ConversationFlow.handleMessage(normalized, null);
-        }
+        // We only acknowledge the payload, we do not auto-reply or process chat messages
+        // console.log("Received incoming message (Ignored as per one-way broadcasting logic)");
       }
       
-      // Process delivery statuses (sent/delivered/read/failed)
+      // 2. Process delivery statuses (sent/delivered/read/failed)
       if (
         body.entry &&
         body.entry[0].changes &&

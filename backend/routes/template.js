@@ -38,60 +38,6 @@ const waitForConnected = async (maxWait = 90000) => {
   }
   console.error('❌ Timed out waiting for CONNECTED');
   return false;
-};
-
-// ── Shared broadcast runner ───────────────────────────────────────────────────
-const runBroadcast = async (template, phoneList, imageUrl) => {
-  let client = getClient();
-  if (!client) {
-    try { client = await initWhatsApp(); } catch (err) { console.error('❌ WA init failed:', err.message); }
-  }
-  if (!client) { template.status = 'failed'; await template.save(); return; }
-
-  const isReady = await waitForConnected(90000);
-  if (!isReady) { template.status = 'failed'; await template.save(); return; }
-
-  console.log('✅ WhatsApp CONNECTED. Waiting 5s buffer...');
-  await sleep(5000);
-
-  let sent = 0, failed = 0;
-  console.log(`🚀 Bulk send to ${phoneList.length} contacts...`);
-
-  for (let i = 0; i < phoneList.length; i++) {
-    const phone = phoneList[i];
-
-    if (getStatus() !== 'CONNECTED') {
-      console.error(`❌ WA disconnected at contact ${i + 1}. Aborting.`);
-      failed += phoneList.length - i;
-      break;
-    }
-
-    try {
-      // ── Pass template._id so conversationFlow can track interested/orders ──
-      await ConversationFlow.startTemplate(
-        phone, imageUrl,
-        template.message, template.title, template.footer,
-        client,
-        template._id   // ← templateId for stats tracking
-      );
-      await Contact.findOneAndUpdate({ phone }, { $inc: { templatesSent: 1 }, lastStatus: 'sent' }, { upsert: true });
-      sent++;
-      console.log(`✅ [${i + 1}/${phoneList.length}] Sent to ${phone}`);
-    } catch (e) {
-      failed++;
-      console.error(`❌ [${i + 1}/${phoneList.length}] Failed ${phone}:`, e.message);
-    }
-    if (i < phoneList.length - 1) await sendDelay(4000);
-  }
-
-  template.totalSent   = sent;
-  template.totalFailed = failed;
-  template.status      = sent > 0 ? 'completed' : 'failed';
-  template.lastRunAt   = new Date();
-  await template.save();
-  console.log(`🏁 Done: ${sent} sent, ${failed} failed`);
-};
-
 // ── Meta Broadcast runner ─────────────────────────────────────────────────────
 const runMetaBroadcast = async (template, phoneList) => {
   let sent = 0, failed = 0;
@@ -405,8 +351,7 @@ const runScheduledTemplates = async () => {
     console.log(`⏰ Running scheduled broadcast: ${t.title}`);
     t.status = 'sending';
     await t.save();
-    const imageUrl = t.imageUrl ? path.join(__dirname, '../uploads/campaigns/', path.basename(t.imageUrl)) : null;
-    runBroadcast(t, t.contacts, imageUrl).then(async () => {
+        runMetaBroadcast(t, t.contacts).then(async () => {
       if (t.repeatDaily) {
         const next = new Date(t.nextRunAt);
         next.setDate(next.getDate() + 1);

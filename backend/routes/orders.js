@@ -3,7 +3,6 @@ const router = express.Router();
 const Order = require('../models/Order');
 const Contact = require('../models/Contact');
 const { getClient } = require('../utils/whatsappService');
-const { ConversationFlow } = require('../utils/conversationFlow');
 
 // Get all orders
 router.get('/', async (req, res) => {
@@ -75,34 +74,12 @@ router.put('/:id/status', async (req, res) => {
     }
   }
 
-  // Send WhatsApp notification
-  const client = getClient();
-  if (client) {
-    try {
-      if (status === 'preparing') {
-        await ConversationFlow.sendDeliveryUpdate(order.customerPhone, order.orderId, 'preparing');
-      } else if (status === 'out_for_delivery') {
-        await ConversationFlow.sendDeliveryUpdate(order.customerPhone, order.orderId, 'out_for_delivery');
-      } else if (status === 'delivered') {
-        await ConversationFlow.sendThankYouMessage(order.customerPhone, order.orderId);
-        await Contact.findOneAndUpdate(
+  // WhatsApp notifications for status updates are disabled for one-way broadcasting system.
+  if (status === 'delivered') {
+      await Contact.findOneAndUpdate(
           { phone: order.customerPhone },
           { $inc: { ordersPlaced: 1 } }
-        );
-      } else if (status === 'cancelled') {
-        const { sendTextMessage, formatPhone } = require('../utils/whatsappService');
-        const cancelMsg = `❌ *ORDER CANCELLED*
-──────────────────────
-🆔 Order ID: *${order.orderId}*
-──────────────────────
-😔 Your order has been cancelled by the store admin.
-
-If you have any questions, please contact us. 🙏`;
-        await sendTextMessage(formatPhone(order.customerPhone), cancelMsg);
-      }
-    } catch (e) {
-      console.error('WA notification failed:', e.message);
-    }
+      );
   }
 
   res.json({ success: true, order });

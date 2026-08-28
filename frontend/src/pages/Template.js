@@ -43,12 +43,25 @@ export default function Template() {
   
   // Sending State
   const [sendingTemplateId, setSendingTemplateId] = useState(null);
-  const [sendPhones, setSendPhones] = useState('');
+  const [sendMode, setSendMode] = useState('ALL'); // 'ALL' or 'SELECT'
+  const [sendPhones, setSendPhones] = useState([]); // Array of selected phone numbers
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  
+  const [contacts, setContacts] = useState([]);
 
   const fileRef = useRef(null);
 
-  useEffect(() => { loadTemplates(); }, []);
+  useEffect(() => { 
+    loadTemplates(); 
+    loadContacts();
+  }, []);
+
+  const loadContacts = async () => {
+    try {
+      const { data } = await api.get('/api/contacts');
+      if (data.success) setContacts(data.contacts || []);
+    } catch (e) { console.error('Failed to load contacts', e); }
+  };
 
   const loadTemplates = async () => {
     try {
@@ -68,17 +81,26 @@ export default function Template() {
   };
 
   const sendMetaTemplate = async (templateId) => {
+    if (sendMode === 'SELECT' && sendPhones.length === 0) {
+      return toast.error('Please select at least one contact.');
+    }
+    
     if (!window.confirm('Are you sure you want to send this template?')) return;
     setIsBroadcasting(true);
+    
     try {
+      // If ALL is selected, we send an empty string so the backend fetches all contacts
+      const phonesPayload = sendMode === 'ALL' ? '' : sendPhones.join(',');
+      
       const { data } = await api.post('/api/template/send-meta', {
         templateId,
-        phones: sendPhones
+        phones: phonesPayload
       });
       if (data.success) {
         toast.success(`Broadcast started to ${data.total} contacts!`);
         setSendingTemplateId(null);
-        setSendPhones('');
+        setSendPhones([]);
+        setSendMode('ALL');
       } else {
         toast.error(data.message);
       }
@@ -86,6 +108,14 @@ export default function Template() {
       toast.error(e.response?.data?.message || 'Failed to start broadcast');
     }
     setIsBroadcasting(false);
+  };
+  
+  const toggleContact = (phone) => {
+    if (sendPhones.includes(phone)) {
+      setSendPhones(sendPhones.filter(p => p !== phone));
+    } else {
+      setSendPhones([...sendPhones, phone]);
+    }
   };
 
   const handleNameChange = (e) => {
@@ -373,25 +403,53 @@ export default function Template() {
 
                     {/* Send Broadcast Panel */}
                     {sendingTemplateId === t._id && (
-                      <div style={{ marginTop: 12, padding: 12, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-                        <label style={{ ...S.label, fontSize: 10 }}>Select Customers</label>
-                        <input 
-                          style={{ ...S.input, marginBottom: 8, padding: '8px 10px' }} 
-                          placeholder="Phone numbers (comma separated). Leave blank for ALL contacts." 
-                          value={sendPhones} 
-                          onChange={e => setSendPhones(e.target.value)} 
-                        />
+                      <div style={{ marginTop: 12, padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 12 }}>Select Audience</div>
+                        
+                        <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                            <input type="radio" name="sendMode" checked={sendMode === 'ALL'} onChange={() => setSendMode('ALL')} />
+                            All Customers ({contacts.length})
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                            <input type="radio" name="sendMode" checked={sendMode === 'SELECT'} onChange={() => setSendMode('SELECT')} />
+                            Specific Customers
+                          </label>
+                        </div>
+                        
+                        {sendMode === 'SELECT' && (
+                          <div style={{ border: '1px solid #e2e8f0', borderRadius: 6, maxHeight: 150, overflowY: 'auto', marginBottom: 16, background: '#fafafa' }}>
+                            {contacts.length === 0 ? (
+                               <div style={{ padding: 12, fontSize: 12, color: '#94a3b8' }}>No contacts found in database.</div>
+                            ) : (
+                               contacts.map(c => (
+                                 <label key={c._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                                   <input type="checkbox" checked={sendPhones.includes(c.phone)} onChange={() => toggleContact(c.phone)} />
+                                   <div style={{ flex: 1 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{c.name || 'Unknown'}</div>
+                                      <div style={{ fontSize: 11, color: '#64748b' }}>{c.phone}</div>
+                                   </div>
+                                 </label>
+                               ))
+                            )}
+                          </div>
+                        )}
+                        
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button 
-                            style={{ flex: 1, padding: '6px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                            style={{ flex: 1, padding: '8px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
                             onClick={() => sendMetaTemplate(t._id)}
                             disabled={isBroadcasting}
+                            onMouseOver={e => e.currentTarget.style.background = '#047857'}
+                            onMouseOut={e => e.currentTarget.style.background = '#059669'}
                           >
-                            {isBroadcasting ? 'Sending...' : 'Confirm Send'}
+                            {isBroadcasting ? 'Sending Broadcast...' : sendMode === 'ALL' ? `Send to All (${contacts.length})` : `Send to ${sendPhones.length} Customers`}
                           </button>
                           <button 
-                            style={{ padding: '6px 12px', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                            onClick={() => setSendingTemplateId(null)}
+                            style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
+                            onClick={() => { setSendingTemplateId(null); setSendMode('ALL'); setSendPhones([]); }}
+                            onMouseOver={e => e.currentTarget.style.background = '#e2e8f0'}
+                            onMouseOut={e => e.currentTarget.style.background = '#f1f5f9'}
                           >
                             Cancel
                           </button>

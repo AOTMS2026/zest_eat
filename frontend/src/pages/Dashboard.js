@@ -199,9 +199,9 @@ export default function Dashboard() {
           <div className="dash-card">
              <h3 className="section-title">Quick Actions</h3>
              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 15 }}>
-                <a href="/campaigns" className="btn-primary" style={{ textAlign: 'center', textDecoration: 'none' }}>New Campaign</a>
-                <a href="/templates" className="btn-secondary" style={{ textAlign: 'center', textDecoration: 'none', background: '#f3f4f6', color: '#374151' }}>Manage Templates</a>
-                <a href="/contacts" className="btn-secondary" style={{ textAlign: 'center', textDecoration: 'none', background: '#f3f4f6', color: '#374151' }}>Import Contacts</a>
+                <a href="/app/campaigns" className="btn-primary" style={{ textAlign: 'center', textDecoration: 'none' }}>New Campaign</a>
+                <a href="/app/templates" className="btn-secondary" style={{ textAlign: 'center', textDecoration: 'none', background: '#f3f4f6', color: '#374151' }}>Manage Templates</a>
+                <a href="/app/contacts" className="btn-secondary" style={{ textAlign: 'center', textDecoration: 'none', background: '#f3f4f6', color: '#374151' }}>Import Contacts</a>
              </div>
           </div>
         </div>

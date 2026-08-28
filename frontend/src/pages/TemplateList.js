@@ -36,7 +36,10 @@ export default function TemplateList() {
     <div className="dashboard-page animate-in">
       <div className="section-title-container">
         <h2 className="section-title" style={{ fontSize: 24 }}><LayoutTemplate /> Meta Templates</h2>
-        <button onClick={loadTemplates} className="btn-secondary" style={{ background: '#fff' }}><RefreshCw size={16} /> Refresh</button>
+        <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={() => window.open('https://business.facebook.com/wa/manage/message-templates/', '_blank')} className="btn-primary" style={{ background: '#3b82f6' }}>+ New Template</button>
+            <button onClick={loadTemplates} className="btn-secondary" style={{ background: '#fff' }}><RefreshCw size={16} /> Sync from Meta</button>
+        </div>
       </div>
       
       <div className="dash-card">

@@ -12,22 +12,22 @@ const navGroups = [
   {
     label: 'Overview',
     items: [
-      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/analytics', icon: BarChart2,       label: 'Analytics' },
+      { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/app/analytics', icon: BarChart2,       label: 'Analytics' },
     ],
   },
   {
     label: 'Automation',
     items: [
-      { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
-      { to: '/templates', icon: List,      label: 'Templates' },
+      { to: '/app/campaigns', icon: Megaphone, label: 'Campaigns' },
+      { to: '/app/templates', icon: List,      label: 'Templates' },
     ],
   },
   {
     label: 'Manage',
     items: [
-      { to: '/contacts',   icon: Users,    label: 'Contacts'  },
-      { to: '/connection', icon: Settings, label: 'Connection' },
+      { to: '/app/contacts',   icon: Users,    label: 'Contacts'  },
+      { to: '/app/connection', icon: Settings, label: 'Connection' },
     ],
   },
 ];
@@ -148,7 +148,7 @@ export default function Layout() {
           </div>
           <button className="sidebar__logout-btn" onClick={() => {
             localStorage.removeItem('admin_token');
-            window.location.href = '/login';
+            window.location.href = '/';
           }}>
             <LogOut size={16} />
             <span>Sign Out</span>

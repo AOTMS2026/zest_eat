@@ -762,13 +762,13 @@ export function RobotHero({
         </Canvas>
       </div>
 
-      <div className="absolute top-1/4 w-full flex flex-col items-center justify-center pointer-events-none z-20">
+      <div className="absolute top-24 w-full flex flex-col items-center justify-center pointer-events-none z-20">
           <img 
             src="/zust-eat.png" 
             alt="Zest Eat Whatsapp" 
-            className="w-64 md:w-96 lg:w-[32rem] max-w-[90vw] h-auto object-contain drop-shadow-xl" 
+            className="w-24 md:w-32 lg:w-40 max-w-[90vw] h-auto object-contain drop-shadow-md" 
           />
-          <p className="mt-4 text-xl md:text-2xl font-medium text-black/60 max-w-2xl text-center">
+          <p className="mt-2 text-sm md:text-base font-medium text-black/60 max-w-2xl text-center">
             Send, track, and scale your WhatsApp campaigns.
           </p>
       </div>

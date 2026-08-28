@@ -125,8 +125,12 @@ const runMetaBroadcast = async (template, phoneList) => {
 router.post('/send', upload.single('image'), async (req, res) => {
   const { title, message, footer, phones } = req.body;
   let phoneList = [];
-  try { phoneList = JSON.parse(phones || '[]'); }
-  catch { phoneList = (phones || '').split(',').map(p => p.trim()).filter(Boolean); }
+  try { 
+    const parsed = JSON.parse(phones || '[]'); 
+    if (Array.isArray(parsed)) phoneList = parsed;
+    else phoneList = String(phones || '').split(',').map(p => p.trim()).filter(Boolean);
+  }
+  catch { phoneList = String(phones || '').split(',').map(p => p.trim()).filter(Boolean); }
 
   if (!phoneList.length) {
     const contacts = await Contact.find({ optedOut: false });
@@ -174,8 +178,12 @@ router.post('/send-meta', async (req, res) => {
   }
 
   let phoneList = [];
-  try { phoneList = JSON.parse(phones || '[]'); }
-  catch { phoneList = (phones || '').split(',').map(p => p.trim()).filter(Boolean); }
+  try { 
+    const parsed = JSON.parse(phones || '[]'); 
+    if (Array.isArray(parsed)) phoneList = parsed;
+    else phoneList = String(phones || '').split(',').map(p => p.trim()).filter(Boolean);
+  }
+  catch { phoneList = String(phones || '').split(',').map(p => p.trim()).filter(Boolean); }
 
   if (!phoneList.length) {
     const contacts = await Contact.find({ optedOut: false });
@@ -193,8 +201,12 @@ router.post('/schedule', upload.single('image'), async (req, res) => {
   if (!scheduleTime) return res.status(400).json({ success: false, message: 'scheduleTime required (HH:MM)' });
 
   let phoneList = [];
-  try { phoneList = JSON.parse(phones || '[]'); }
-  catch { phoneList = (phones || '').split(',').map(p => p.trim()).filter(Boolean); }
+  try { 
+    const parsed = JSON.parse(phones || '[]'); 
+    if (Array.isArray(parsed)) phoneList = parsed;
+    else phoneList = String(phones || '').split(',').map(p => p.trim()).filter(Boolean);
+  }
+  catch { phoneList = String(phones || '').split(',').map(p => p.trim()).filter(Boolean); }
 
   if (!phoneList.length) {
     const contacts = await Contact.find({ optedOut: false });

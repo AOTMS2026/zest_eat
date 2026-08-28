@@ -14,6 +14,7 @@ const templateSchema = new mongoose.Schema({
   message:         { type: String }, 
   footer:          { type: String, default: '' },
   imageUrl:        { type: String, default: '' },
+  mediaId:         { type: String, default: '' }, // Meta Media ID for sending
   
   // Stats & Scheduling (unchanged)
   contacts:        [{ type: String }],

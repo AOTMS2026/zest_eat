@@ -22,7 +22,7 @@
   display: flex;
   height: 100vh;
   overflow: hidden;
-  background: #f1f5f9;
+  background: #f8fafc;
 }
 
 /* ── Mobile overlay ─────────────────────── */
@@ -242,13 +242,13 @@
 .topbar {
   height: var(--topbar-h);
   background: #ffffff;
-  border-bottom: 1px solid #e8ecf0;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
   align-items: center;
   padding: 0 20px;
   gap: 14px;
   position: sticky; top: 0; z-index: 50;
-  box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
 
 .topbar__menu-btn {
@@ -285,7 +285,7 @@
   padding: 28px;
   overflow-y: auto;
   overflow-x: hidden;
-  background: #f1f5f9;
+  background: #f8fafc;
 }
 
 /* ── Utilities ──────────────────────────── */

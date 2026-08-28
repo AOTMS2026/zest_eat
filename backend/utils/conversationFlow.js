@@ -235,6 +235,23 @@ const startMetaTemplate = async (phone, template) => {
   // Construct components for Meta API if necessary
   const components = [];
 
+  // Check if template has an Image/Video/Document header
+  const headerComponent = template.components?.find(c => c.type === 'HEADER' && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(c.format));
+  if (headerComponent && template.imageUrl) {
+    const publicUrl = `https://zest-eat.onrender.com${template.imageUrl}`;
+    components.push({
+      type: 'header',
+      parameters: [
+        {
+          type: headerComponent.format.toLowerCase(),
+          [headerComponent.format.toLowerCase()]: {
+            link: publicUrl
+          }
+        }
+      ]
+    });
+  }
+
   // Check if template body has variables ({{1}})
   const bodyComponent = template.components?.find(c => c.type === 'BODY');
   if (bodyComponent && bodyComponent.text && bodyComponent.text.includes('{{1}}')) {
@@ -250,6 +267,7 @@ const startMetaTemplate = async (phone, template) => {
     await sendMetaTemplate(sp, template.name, template.language, components);
   } catch (e) {
     console.log(`❌ Failed to send Meta Template to ${sp}:`, e.message);
+    throw e;
   }
 };
 

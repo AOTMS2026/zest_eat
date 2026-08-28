@@ -276,6 +276,7 @@ router.post('/meta', upload.single('media'), async (req, res) => {
       language,
       category,
       components,
+      imageUrl: req.file ? `/uploads/${req.file.filename}` : '', // Save the local path
       metaTemplateId: metaResponse.id,
       metaStatus: metaResponse.status || 'PENDING',
       title: name, // fallback display

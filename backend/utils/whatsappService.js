@@ -50,8 +50,9 @@ const sendRequest = async (payload) => {
     const response = await axios.post(config.url, payload, { headers: config.headers });
     return response.data;
   } catch (error) {
-    console.error('❌ [WA] Meta API Error:', error.response?.data || error.message);
-    throw error;
+    const metaError = error.response?.data?.error;
+    console.error('❌ [WA] Meta API Error:', JSON.stringify(metaError || error.message, null, 2));
+    throw new Error(metaError?.message || error.message);
   }
 };
 
@@ -203,10 +204,13 @@ const sendMetaTemplate = async (phone, templateName, languageCode = 'en_US', com
       name: templateName,
       language: {
         code: languageCode
-      },
-      components: components
+      }
     }
   };
+  
+  if (components && components.length > 0) {
+    payload.template.components = components;
+  }
   
   return await sendRequest(payload);
 };

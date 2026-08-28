@@ -8,15 +8,8 @@ import { LogIn, User, LayoutDashboard, LogOut } from 'lucide-react';
 export default function Landing() {
   const navigate = useNavigate();
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  
   const token = localStorage.getItem('admin_token');
   const isLoggedIn = !!token;
-
-  const handleSignOut = () => {
-    localStorage.removeItem('admin_token');
-    window.location.reload();
-  };
 
   return (
     <div className={`relative min-h-screen ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
@@ -33,31 +26,13 @@ export default function Landing() {
              <LeverSwitch checked={isDarkMode} onChange={setIsDarkMode} />
           </div>
           {isLoggedIn ? (
-            <div className="relative">
-              <button 
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 bg-[#1d4ed8] text-white px-4 py-2.5 rounded-full font-bold hover:bg-[#1e3a8a] transition-colors"
-              >
-                <User size={18} /> Profile
-              </button>
-              
-              {isProfileOpen && (
-                <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-lg py-2 border z-50 ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-slate-100 text-slate-800'}`}>
-                  <button 
-                    onClick={() => navigate('/dashboard')}
-                    className={`w-full text-left px-4 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors ${isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-slate-50'}`}
-                  >
-                    <LayoutDashboard size={16} /> Dashboard
-                  </button>
-                  <button 
-                    onClick={handleSignOut}
-                    className={`w-full text-left px-4 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors text-red-500 ${isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-slate-50'}`}
-                  >
-                    <LogOut size={16} /> Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
+            <button 
+              onClick={() => navigate('/dashboard')}
+              title="Go to Dashboard"
+              className="flex items-center justify-center bg-[#1d4ed8] text-white w-10 h-10 rounded-full hover:bg-[#1e3a8a] transition-all shadow-md shadow-blue-500/30 border border-blue-400/30 hover:scale-105"
+            >
+              <User size={20} />
+            </button>
           ) : (
             <button 
               onClick={() => navigate('/login')}

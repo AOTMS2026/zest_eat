@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HeroSection } from '../components/ui/hero-section';
+import { RobotHero } from '../components/ui/robot-hero';
 import { LeverSwitch } from '../components/ui/lever-switch';
 import { LogIn } from 'lucide-react';
 
 export default function Landing() {
   const navigate = useNavigate();
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   return (
     <div className={`relative min-h-screen ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
@@ -32,7 +33,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <HeroSection isDarkMode={isDarkMode} />
+      {isDarkMode ? <HeroSection isDarkMode={true} /> : <RobotHero />}
     </div>
   );
 }

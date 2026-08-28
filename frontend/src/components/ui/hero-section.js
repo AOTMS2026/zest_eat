@@ -13,7 +13,7 @@ const colors = {
   900: "#1a1d18",
 };
  
-export function HeroSection() {
+export function HeroSection({ isDarkMode = true }) {
   const gradientRef = useRef(null);
  
   useEffect(() => {
@@ -93,7 +93,7 @@ export function HeroSection() {
  
   return (
     <div
-      className="min-h-screen bg-black text-[#e6e1d7] overflow-hidden relative w-full"
+      className={`min-h-screen ${isDarkMode ? 'bg-black text-[#e6e1d7]' : 'bg-white text-[#1a1d18]'} overflow-hidden relative w-full`}
     >
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -101,7 +101,7 @@ export function HeroSection() {
             <path
               d="M 60 0 L 0 0 0 60"
               fill="none"
-              stroke="rgba(200,180,160,0.08)"
+              stroke={isDarkMode ? "rgba(200,180,160,0.08)" : "rgba(26,29,24,0.08)"}
               strokeWidth="0.5"
             />
           </pattern>
@@ -171,7 +171,7 @@ export function HeroSection() {
         <div className="text-center">
           <h2
             className="text-xs md:text-sm font-mono font-light uppercase tracking-[0.2em] opacity-80 flex flex-wrap justify-center gap-1.5"
-            style={{ color: colors[200] }}
+            style={{ color: isDarkMode ? colors[200] : colors[600] }}
           >
             <span className="word" data-delay="0">Welcome</span>
             <span className="word" data-delay="200">to</span>
@@ -194,7 +194,7 @@ export function HeroSection() {
         <div className="text-center max-w-5xl mx-auto mt-12 mb-12">
           <h1
             className="text-4xl md:text-6xl lg:text-7xl font-extralight leading-tight tracking-tight"
-            style={{ color: colors[50] }}
+            style={{ color: isDarkMode ? colors[50] : colors[900] }}
           >
             <div className="mb-4 md:mb-6 flex flex-wrap justify-center gap-x-2 gap-y-1">
               <span className="word" data-delay="1600">Supercharge</span>
@@ -205,8 +205,8 @@ export function HeroSection() {
               <span className="word" data-delay="2350">automation.</span>
             </div>
             <div
-              className="text-2xl md:text-4xl lg:text-5xl font-thin leading-relaxed flex flex-wrap justify-center gap-x-2 gap-y-1 mt-4"
-              style={{ color: colors[200] }}
+              className="text-base md:text-xl lg:text-2xl font-thin leading-relaxed flex flex-wrap justify-center gap-x-2 gap-y-1 mt-4"
+              style={{ color: isDarkMode ? colors[200] : colors[600] }}
             >
               <span className="word" data-delay="2600">Send,</span>
               <span className="word" data-delay="2750">track,</span>
@@ -249,7 +249,7 @@ export function HeroSection() {
           ></div>
           <h2
             className="text-xs md:text-sm font-mono font-light uppercase tracking-[0.2em] opacity-80 flex flex-wrap justify-center gap-1.5"
-            style={{ color: colors[200] }}
+            style={{ color: isDarkMode ? colors[200] : colors[600] }}
           >
             <span className="word" data-delay="4400">Real-time</span>
             <span className="word" data-delay="4550">analytics,</span>

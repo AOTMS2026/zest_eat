@@ -9,17 +9,17 @@ export default function Landing() {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   return (
-    <div className="relative min-h-screen bg-black">
+    <div className={`relative min-h-screen ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
       {/* Navbar overlay */}
       <nav className="absolute top-0 left-0 w-full z-50 flex justify-between items-center px-8 py-6">
-        <div className="flex items-center gap-2 text-[#c8b4a0]">
-          <span className="text-2xl">🚀</span>
+        <div className={`flex items-center gap-2 ${isDarkMode ? 'text-[#c8b4a0]' : 'text-[#8a7060]'}`}>
+          <img src="/image.png" alt="Zest Eat Logo" className="h-10 w-auto object-contain" />
           <span className="font-bold text-xl tracking-wider uppercase font-mono">Zest Eat</span>
         </div>
         
         <div className="flex items-center gap-6">
           <div className="hidden md:flex items-center gap-3">
-             <span className="text-sm font-mono text-[#c8b4a0] uppercase tracking-wider">Dark Mode</span>
+             <span className={`text-sm font-mono uppercase tracking-wider ${isDarkMode ? 'text-[#c8b4a0]' : 'text-[#8a7060]'}`}>Dark Mode</span>
              <LeverSwitch checked={isDarkMode} onChange={setIsDarkMode} />
           </div>
           <button 
@@ -32,7 +32,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <HeroSection />
+      <HeroSection isDarkMode={isDarkMode} />
     </div>
   );
 }

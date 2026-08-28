@@ -295,16 +295,27 @@ router.post('/meta', upload.single('media'), async (req, res) => {
       }
     }
 
-    // 2. Submit to Meta
     const metaResponse = await createTemplateOnMeta(name, language, category, components);
     
-    // 2. Save in database
+    // 2b. Upload media again but specifically for sending (to get a media_id instead of a handle)
+    let mediaId = null;
+    if (req.file) {
+      const { uploadMediaForSending } = require('../utils/metaTemplateService');
+      try {
+        mediaId = await uploadMediaForSending(req.file.path, req.file.mimetype);
+      } catch (err) {
+        console.error('Failed to upload media for sending:', err.message);
+      }
+    }
+    
+    // 3. Save in database
     const template = new Template({
       name,
       language,
       category,
       components,
       imageUrl: req.file ? `/uploads/${req.file.filename}` : '', // Save the local path
+      mediaId, // Save the Meta media ID for sending
       metaTemplateId: metaResponse.id,
       metaStatus: metaResponse.status || 'PENDING',
       title: name, // fallback display

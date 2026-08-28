@@ -239,31 +239,53 @@ const startMetaTemplate = async (phone, template) => {
   const headerComponent = template.components?.find(c => c.type === 'HEADER' && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(c.format));
   
   if (headerComponent) {
-    let publicUrl = '';
+    let mediaId = template.mediaId;
+    let fallbackLink = '';
     
-    if (!template.imageUrl) {
-      // If this is an old template that didn't save imageUrl, fallback to a highly reliable un-blocked image
-      console.log(`⚠️ Template '${template.name}' requires a media header but imageUrl is missing. Using fallback image.`);
-      publicUrl = 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=600&auto=format&fit=crop'; // Reliable food image fallback
-    } else {
-      // Fix the campaigns path just in case it was saved incorrectly
-      let rawPath = template.imageUrl;
-      if (rawPath && !rawPath.includes('/campaigns/') && rawPath.startsWith('/uploads/')) {
-         rawPath = rawPath.replace('/uploads/', '/uploads/campaigns/');
-      }
-      publicUrl = `https://zest-eat.onrender.com${rawPath}`;
-    }
-    components.push({
-      type: 'header',
-      parameters: [
-        {
-          type: headerComponent.format.toLowerCase(),
-          [headerComponent.format.toLowerCase()]: {
-            link: publicUrl
-          }
+    // If it doesn't have a mediaId but has an imageUrl (from before we added this feature), upload it retroactively!
+    if (!mediaId && template.imageUrl) {
+        const { uploadMediaForSending } = require('./metaTemplateService');
+        const path = require('path');
+        const mime = require('mime-types');
+        const Template = require('../models/Template');
+        const fs = require('fs');
+        
+        let localPath = template.imageUrl;
+        if (localPath.startsWith('/uploads/')) {
+           localPath = localPath.replace('/uploads/', '/uploads/campaigns/');
+           const absolutePath = path.join(__dirname, '..', localPath);
+           if (fs.existsSync(absolutePath)) {
+               try {
+                   console.log(`Uploading local image to Meta to get Media ID...`);
+                   mediaId = await uploadMediaForSending(absolutePath, mime.lookup(absolutePath) || 'image/jpeg');
+                   
+                   // Save back to DB so we don't have to upload it again!
+                   await Template.findByIdAndUpdate(template._id, { mediaId });
+               } catch(e) {
+                   console.error('Failed to fallback upload:', e.message);
+               }
+           }
         }
-      ]
-    });
+    }
+    
+    // If we STILL don't have a mediaId (e.g., completely old template like fresh_meat without imageUrl)
+    if (!mediaId) {
+      console.log(`⚠️ Template '${template.name}' requires a media header but mediaId is missing.`);
+    }
+
+    if (mediaId) {
+      components.push({
+        type: 'header',
+        parameters: [
+          {
+            type: headerComponent.format.toLowerCase(),
+            [headerComponent.format.toLowerCase()]: {
+              id: mediaId
+            }
+          }
+        ]
+      });
+    }
   }
 
   // Check if template body has variables ({{1}})

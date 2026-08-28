@@ -1,5 +1,6 @@
 const axios = require('axios');
 const fs = require('fs');
+const FormData = require('form-data');
 
 const getMetaConfig = () => {
   const token = process.env.META_WA_ACCESS_TOKEN;
@@ -82,8 +83,37 @@ const uploadMediaToMeta = async (filePath, mimeType, size) => {
   }
 };
 
+const uploadMediaForSending = async (filePath, mimeType) => {
+  const token = process.env.META_WA_ACCESS_TOKEN;
+  const phoneId = process.env.META_WA_PHONE_NUMBER_ID;
+  const version = process.env.META_GRAPH_VERSION || 'v19.0';
+  
+  if (!token || !phoneId) throw new Error('Missing Meta Access Token or Phone ID in .env');
+
+  try {
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('file', fs.createReadStream(filePath), { contentType: mimeType });
+
+    const url = `https://graph.facebook.com/${version}/${phoneId}/media`;
+    
+    const response = await axios.post(url, form, {
+      headers: {
+        ...form.getHeaders(),
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    return response.data.id;
+  } catch (error) {
+    console.error('❌ [WA] Meta Media Upload Error:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 module.exports = {
   createTemplateOnMeta,
   getTemplateStatusFromMeta,
-  uploadMediaToMeta
+  uploadMediaToMeta,
+  uploadMediaForSending
 };

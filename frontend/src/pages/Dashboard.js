@@ -12,15 +12,15 @@ const CustomTooltip = ({ active, payload, label }) => {
         <p className="tooltip-date">{label}</p>
         <p className="tooltip-item">
           <span>Sent:</span>
-          <span style={{ fontWeight:800, color:'#3b82f6' }}>{payload[0]?.value || 0}</span>
+          <span style={{ fontWeight:800, color:'#1d4ed8' }}>{payload[0]?.value || 0}</span>
         </p>
         <p className="tooltip-item">
           <span>Delivered:</span>
-          <span style={{ fontWeight:800, color:'#10b981' }}>{payload[1]?.value || 0}</span>
+          <span style={{ fontWeight:800, color:'#b91c1c' }}>{payload[1]?.value || 0}</span>
         </p>
         <p className="tooltip-item">
           <span>Read:</span>
-          <span style={{ fontWeight:800, color:'#8b5cf6' }}>{payload[2]?.value || 0}</span>
+          <span style={{ fontWeight:800, color:'#3b82f6' }}>{payload[2]?.value || 0}</span>
         </p>
         <p className="tooltip-item">
           <span>Failed:</span>
@@ -100,10 +100,10 @@ export default function Dashboard() {
   };
 
   const statCards = [
-    { label:'Sent Messages',   value: stats?.sent ?? 0,      icon:<Send size={20}/>,       classType:'card-blue',   iconBg:'#EFF6FF', iconColor:'#3B82F6' },
-    { label:'Delivered',       value: stats?.delivered ?? 0, icon:<CheckCircle size={20}/>,classType:'card-green',  iconBg:'#D1FADF', iconColor:'#10B981' },
-    { label:'Read',            value: stats?.read ?? 0,      icon:<CheckCheck size={20}/>, classType:'card-purple', iconBg:'#F3E8FF', iconColor:'#8B5CF6' },
-    { label:'Failed',          value: stats?.failed ?? 0,    icon:<XCircle size={20}/>,    classType:'card-red',    iconBg:'#FEE2E2', iconColor:'#EF4444' },
+    { label:'Sent Messages',   value: stats?.sent ?? 0,      icon:<Send size={20}/>,       classType:'card-blue', iconBg:'#eff6ff', iconColor:'#1d4ed8' },
+    { label:'Delivered',       value: stats?.delivered ?? 0, icon:<CheckCircle size={20}/>,classType:'card-red',  iconBg:'#fee2e2', iconColor:'#b91c1c' },
+    { label:'Read',            value: stats?.read ?? 0,      icon:<CheckCheck size={20}/>, classType:'card-blue', iconBg:'#eff6ff', iconColor:'#1d4ed8' },
+    { label:'Failed',          value: stats?.failed ?? 0,    icon:<XCircle size={20}/>,    classType:'card-red',  iconBg:'#fee2e2', iconColor:'#b91c1c' },
   ];
 
   const chartData = getChartData();
@@ -135,9 +135,9 @@ export default function Dashboard() {
             <div className="section-title-container">
               <span className="section-title">Campaign Delivery Trends</span>
               <div className="chart-legend">
-                <span><span style={{ background:'#3b82f6', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Sent</span>
-                <span><span style={{ background:'#10b981', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Delivered</span>
-                <span><span style={{ background:'#8b5cf6', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Read</span>
+                <span><span style={{ background:'#1d4ed8', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Sent</span>
+                <span><span style={{ background:'#b91c1c', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Delivered</span>
+                <span><span style={{ background:'#3b82f6', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Read</span>
                 <span><span style={{ background:'#ef4444', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Failed</span>
               </div>
             </div>
@@ -150,25 +150,25 @@ export default function Dashboard() {
                   <AreaChart data={chartData} margin={{ top:10, right:10, left:-20, bottom:0 }}>
                     <defs>
                       <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#1d4ed8" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0}/>
                       </linearGradient>
                       <linearGradient id="colorDelivered" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#b91c1c" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#b91c1c" stopOpacity={0}/>
                       </linearGradient>
                       <linearGradient id="colorRead" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize:12, fill:'#6b7280' }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize:12, fill:'#6b7280' }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="sent" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorSent)" />
-                    <Area type="monotone" dataKey="delivered" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorDelivered)" />
-                    <Area type="monotone" dataKey="read" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorRead)" />
+                    <Area type="monotone" dataKey="sent" stroke="#1d4ed8" strokeWidth={3} fillOpacity={1} fill="url(#colorSent)" />
+                    <Area type="monotone" dataKey="delivered" stroke="#b91c1c" strokeWidth={3} fillOpacity={1} fill="url(#colorDelivered)" />
+                    <Area type="monotone" dataKey="read" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRead)" />
                     <Area type="monotone" dataKey="failed" stroke="#ef4444" strokeWidth={2} fill="none" />
                   </AreaChart>
                 </ResponsiveContainer>

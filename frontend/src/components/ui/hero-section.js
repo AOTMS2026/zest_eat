@@ -93,7 +93,7 @@ export function HeroSection() {
  
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-[#1a1d18] via-black to-[#2a2e26] text-[#e6e1d7] overflow-hidden relative w-full"
+      className="min-h-screen bg-black text-[#e6e1d7] overflow-hidden relative w-full"
     >
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -193,7 +193,7 @@ export function HeroSection() {
         {/* Main headline */}
         <div className="text-center max-w-5xl mx-auto mt-12 mb-12">
           <h1
-            className="text-3xl md:text-5xl lg:text-6xl font-extralight leading-tight tracking-tight"
+            className="text-4xl md:text-6xl lg:text-7xl font-extralight leading-tight tracking-tight"
             style={{ color: colors[50] }}
           >
             <div className="mb-4 md:mb-6 flex flex-wrap justify-center gap-x-2 gap-y-1">
@@ -205,7 +205,7 @@ export function HeroSection() {
               <span className="word" data-delay="2350">automation.</span>
             </div>
             <div
-              className="text-xl md:text-3xl lg:text-4xl font-thin leading-relaxed flex flex-wrap justify-center gap-x-2 gap-y-1"
+              className="text-2xl md:text-4xl lg:text-5xl font-thin leading-relaxed flex flex-wrap justify-center gap-x-2 gap-y-1 mt-4"
               style={{ color: colors[200] }}
             >
               <span className="word" data-delay="2600">Send,</span>

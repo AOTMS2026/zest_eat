@@ -9,7 +9,7 @@ export default function Landing() {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   return (
-    <div className="relative min-h-screen bg-[#1a1d18]">
+    <div className="relative min-h-screen bg-black">
       {/* Navbar overlay */}
       <nav className="absolute top-0 left-0 w-full z-50 flex justify-between items-center px-8 py-6">
         <div className="flex items-center gap-2 text-[#c8b4a0]">

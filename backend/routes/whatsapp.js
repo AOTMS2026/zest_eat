@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { getStatus } = require('../utils/whatsappService');
 const { ConversationFlow } = require('../utils/conversationFlow');
+const MessageLog = require('../models/MessageLog');
 
 // ── GET current status ────────────────────────────────────────────────────────
 router.get('/status', (req, res) => {
@@ -90,6 +91,54 @@ router.post('/webhook', async (req, res) => {
           await ConversationFlow.handleMessage(normalized, null);
         }
       }
+      
+      // Process delivery statuses (sent/delivered/read/failed)
+      if (
+        body.entry &&
+        body.entry[0].changes &&
+        body.entry[0].changes[0] &&
+        body.entry[0].changes[0].value.statuses &&
+        body.entry[0].changes[0].value.statuses[0]
+      ) {
+        let statusObj = body.entry[0].changes[0].value.statuses[0];
+        
+        let wamid = statusObj.id;
+        let phone = statusObj.recipient_id;
+        let status = statusObj.status;
+        let timestamp = new Date(parseInt(statusObj.timestamp) * 1000);
+        let errorCode = null;
+        let errorMessage = null;
+        let pricing = statusObj.pricing || null;
+        
+        if (status === 'failed' && statusObj.errors && statusObj.errors.length > 0) {
+          errorCode = statusObj.errors[0].code;
+          errorMessage = statusObj.errors[0].title || statusObj.errors[0].message || 'Unknown error';
+        }
+        
+        console.log(`\n📊 [WEBHOOK STATUS] ${phone} | ${status.toUpperCase()} | wamid: ${wamid}`);
+        if (errorCode) console.error(`❌ Meta Error: [${errorCode}] ${errorMessage}`);
+        
+        try {
+          await MessageLog.findOneAndUpdate(
+            { wamid },
+            { 
+              $set: {
+                wamid,
+                phone,
+                status,
+                timestamp,
+                errorCode,
+                errorMessage,
+                pricing
+              }
+            },
+            { upsert: true, new: true }
+          );
+        } catch (dbErr) {
+          console.error('Failed to save status to MessageLog:', dbErr);
+        }
+      }
+
       res.sendStatus(200);
     } else {
       res.sendStatus(404);

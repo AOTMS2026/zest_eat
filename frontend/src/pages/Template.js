@@ -62,8 +62,8 @@ export default function Template() {
       await api.get(`/api/template/meta/${id}/status`);
       loadTemplates();
       toast.success('Status updated');
-    } catch {
-      toast.error('Failed to update status');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to update status');
     }
   };
 

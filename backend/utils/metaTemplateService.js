@@ -40,8 +40,9 @@ const createTemplateOnMeta = async (name, language, category, components) => {
 
 const getTemplateStatusFromMeta = async (templateId) => {
     const config = getMetaConfig();
+    const version = process.env.META_GRAPH_VERSION || 'v19.0';
     try {
-        const response = await axios.get(`${config.url.replace('/message_templates', '')}/${templateId}`, { headers: config.headers });
+        const response = await axios.get(`https://graph.facebook.com/${version}/${templateId}`, { headers: config.headers });
         return response.data;
     } catch (error) {
         console.error('❌ [WA] Meta Template Status Error:', error.response?.data || error.message);

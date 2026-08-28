@@ -24,20 +24,6 @@ const sendDelay = (base = 4000) => {
   const jitter = Math.floor(Math.random() * 2000) - 1000;
   return sleep(Math.max(2500, base + jitter));
 };
-
-const waitForConnected = async (maxWait = 90000) => {
-  const interval = 2000;
-  let elapsed = 0;
-  while (elapsed < maxWait) {
-    const status = getStatus();
-    console.log(`⏳ Waiting for CONNECTED... status: ${status} (${elapsed}ms)`);
-    if (status === 'CONNECTED') return true;
-    if (status === 'DISCONNECTED' || status === 'ERROR') return false;
-    await sleep(interval);
-    elapsed += interval;
-  }
-  console.error('❌ Timed out waiting for CONNECTED');
-  return false;
 // ── Meta Broadcast runner ─────────────────────────────────────────────────────
 const runMetaBroadcast = async (template, phoneList) => {
   let sent = 0, failed = 0;
@@ -67,47 +53,7 @@ const runMetaBroadcast = async (template, phoneList) => {
   console.log(`🏁 Meta Broadcast Done: ${sent} sent, ${failed} failed`);
 };
 
-// POST /api/template/send
-router.post('/send', upload.single('image'), async (req, res) => {
-  const { title, message, footer, phones } = req.body;
-  let phoneList = [];
-  try { 
-    const parsed = JSON.parse(phones || '[]'); 
-    if (Array.isArray(parsed)) phoneList = parsed;
-    else phoneList = String(phones || '').split(',').map(p => p.trim()).filter(Boolean);
-  }
-  catch { phoneList = String(phones || '').split(',').map(p => p.trim()).filter(Boolean); }
-
-  if (!phoneList.length) {
-    const contacts = await Contact.find({ optedOut: false });
-    phoneList = contacts.map(c => c.phone);
-  }
-  if (!phoneList.length) return res.status(400).json({ success: false, message: 'No contacts to send to' });
-
-  // Deduplication check: prevent duplicate templates within 10 seconds
-  const tenSecondsAgo = new Date(Date.now() - 10000);
-  const duplicate = await Template.findOne({
-    message,
-    title: title || 'Fresh Stock Available!',
-    footer: footer || '',
-    createdAt: { $gte: tenSecondsAgo }
-  });
-  if (duplicate) {
-    console.log('⚠️ [WA] Duplicate template broadcast request detected. Ignoring.');
-    return res.json({ success: true, templateId: duplicate._id, total: phoneList.length, message: 'Template already sent (duplicate check).' });
-  }
-
-  const imageUrl = req.file ? path.join(__dirname, '../uploads/campaigns/', req.file.filename) : null;
-  const template = new Template({
-    title: title || 'Fresh Stock Available!', message, footer: footer || '',
-    imageUrl: req.file ? `/uploads/campaigns/${req.file.filename}` : '',
-    contacts: phoneList, status: 'sending', sentAt: new Date(),
-  });
-  await template.save();
-
-  res.json({ success: true, templateId: template._id, total: phoneList.length, message: 'Template started!' });
-  runBroadcast(template, phoneList, imageUrl);
-});
+// Legacy Baileys endpoint /api/template/send removed.
 
 // POST /api/template/send-meta
 // Send an approved Meta Template to users

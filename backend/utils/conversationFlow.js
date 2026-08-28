@@ -4,7 +4,7 @@ const Menu         = require('../models/Menu');
 const Conversation = require('../models/Conversation');
 const Template     = require('../models/Template');
 const { v4: uuidv4 } = require('uuid');
-const { sendTextMessage, sendImageMessage } = require('./whatsappService');
+const { sendTextMessage, sendImageMessage, sendMetaTemplate } = require('./whatsappService');
 
 const STATES = {
   IDLE:                    'IDLE',
@@ -211,6 +211,46 @@ const startTemplate = async (phone, imageUrl, templateText, headerText, footerTe
   if (pFooter) combinedText += `\n\n_${pFooter}_`;
   combinedText += `\n\n🛒 *Are you interested?*\n1️⃣ Yes, Interested!\n2️⃣ No, Not Interested\n\n_Reply STOP to unsubscribe_`;
   await sendTextMessage(sp, combinedText);
+};
+
+// ── Meta Template start ───────────────────────────────────────────────────────
+const startMetaTemplate = async (phone, template) => {
+  const d  = toDbPhone(phone);
+  const sp = toSendPhone(phone);
+
+  const contact = await Contact.findOne({ phone: sp });
+  if (contact?.optedOut) { console.log(`⛔ Skipping opted-out: ${sp}`); return; }
+
+  // Store templateId in session so responses can update the template stats
+  await setSession(d, {
+    state: STATES.AWAITING_INTEREST, // Using AWAITING_INTEREST so QUICK_REPLY triggers it
+    selectedItems: [],
+    currentItemIndex: 0,
+    templateId: template._id || null,
+  });
+  console.log(`📤 Meta Template session set for: ${d} (templateId: ${template._id || 'none'})`);
+
+  const name  = contact?.name  || 'Customer';
+  
+  // Construct components for Meta API if necessary
+  const components = [];
+
+  // Check if template body has variables ({{1}})
+  const bodyComponent = template.components?.find(c => c.type === 'BODY');
+  if (bodyComponent && bodyComponent.text && bodyComponent.text.includes('{{1}}')) {
+    components.push({
+      type: 'body',
+      parameters: [
+        { type: 'text', text: name }
+      ]
+    });
+  }
+
+  try {
+    await sendMetaTemplate(sp, template.name, template.language, components);
+  } catch (e) {
+    console.log(`❌ Failed to send Meta Template to ${sp}:`, e.message);
+  }
 };
 
 // ── Interest response ─────────────────────────────────────────────────────────
@@ -482,6 +522,6 @@ const handlePollResponse = async (pollResponse, client) => {
 };
 
 module.exports = {
-  ConversationFlow: { handleMessage, handlePollResponse, startTemplate, sendDeliveryUpdate, sendThankYouMessage },
+  ConversationFlow: { handleMessage, handlePollResponse, startTemplate, startMetaTemplate, sendDeliveryUpdate, sendThankYouMessage },
   STATES,
 };

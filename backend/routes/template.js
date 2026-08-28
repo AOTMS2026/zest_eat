@@ -92,6 +92,35 @@ const runBroadcast = async (template, phoneList, imageUrl) => {
   console.log(`🏁 Done: ${sent} sent, ${failed} failed`);
 };
 
+// ── Meta Broadcast runner ─────────────────────────────────────────────────────
+const runMetaBroadcast = async (template, phoneList) => {
+  let sent = 0, failed = 0;
+  console.log(`🚀 Bulk Meta send to ${phoneList.length} contacts...`);
+
+  // Meta Cloud API is stateless and doesn't need socket connection waiting!
+  for (let i = 0; i < phoneList.length; i++) {
+    const phone = phoneList[i];
+    try {
+      await ConversationFlow.startMetaTemplate(phone, template);
+      await Contact.findOneAndUpdate({ phone: phone }, { $inc: { templatesSent: 1 }, lastStatus: 'sent' }, { upsert: true });
+      sent++;
+      console.log(`✅ [${i + 1}/${phoneList.length}] Sent Meta Template to ${phone}`);
+    } catch (e) {
+      failed++;
+      console.error(`❌ [${i + 1}/${phoneList.length}] Failed ${phone}:`, e.message);
+    }
+    // Meta allows higher limits, so delay can be smaller than Baileys
+    if (i < phoneList.length - 1) await sendDelay(500); 
+  }
+
+  template.totalSent   = (template.totalSent || 0) + sent;
+  template.totalFailed = (template.totalFailed || 0) + failed;
+  template.status      = sent > 0 ? 'completed' : 'failed';
+  template.lastRunAt   = new Date();
+  await template.save();
+  console.log(`🏁 Meta Broadcast Done: ${sent} sent, ${failed} failed`);
+};
+
 // POST /api/template/send
 router.post('/send', upload.single('image'), async (req, res) => {
   const { title, message, footer, phones } = req.body;
@@ -128,6 +157,34 @@ router.post('/send', upload.single('image'), async (req, res) => {
 
   res.json({ success: true, templateId: template._id, total: phoneList.length, message: 'Template started!' });
   runBroadcast(template, phoneList, imageUrl);
+});
+
+// POST /api/template/send-meta
+// Send an approved Meta Template to users
+router.post('/send-meta', async (req, res) => {
+  const { templateId, phones } = req.body;
+  if (!templateId) return res.status(400).json({ success: false, message: 'Template ID required' });
+
+  const template = await Template.findById(templateId);
+  if (!template) {
+    return res.status(404).json({ success: false, message: 'Template not found' });
+  }
+  if (template.metaStatus !== 'APPROVED') {
+    return res.status(400).json({ success: false, message: 'Only APPROVED templates can be sent' });
+  }
+
+  let phoneList = [];
+  try { phoneList = JSON.parse(phones || '[]'); }
+  catch { phoneList = (phones || '').split(',').map(p => p.trim()).filter(Boolean); }
+
+  if (!phoneList.length) {
+    const contacts = await Contact.find({ optedOut: false });
+    phoneList = contacts.map(c => c.phone);
+  }
+  if (!phoneList.length) return res.status(400).json({ success: false, message: 'No contacts to send to' });
+
+  res.json({ success: true, total: phoneList.length, message: 'Meta Broadcast started!' });
+  runMetaBroadcast(template, phoneList);
 });
 
 // POST /api/template/schedule

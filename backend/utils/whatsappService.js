@@ -190,6 +190,27 @@ const sendListMenu = async (phone, options) => {
   return await sendRequest(payload);
 };
 
+// Send an official Meta Template Message
+const sendMetaTemplate = async (phone, templateName, languageCode = 'en_US', components = []) => {
+  const to = formatPhone(phone);
+  console.log(`📤 [WA] Sending Meta Template '${templateName}' to ${to}`);
+  
+  const payload = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: {
+        code: languageCode
+      },
+      components: components
+    }
+  };
+  
+  return await sendRequest(payload);
+};
+
 module.exports = {
   getStatus,
   sendTextMessage,
@@ -199,4 +220,5 @@ module.exports = {
   sendListMenu,
   formatPhone,
   isSelfSend,
+  sendMetaTemplate,
 };

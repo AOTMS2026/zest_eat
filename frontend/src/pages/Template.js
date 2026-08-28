@@ -41,6 +41,11 @@ export default function Template() {
   const [footerText, setFooterText] = useState('');
   const [buttons, setButtons] = useState([]);
   
+  // Sending State
+  const [sendingTemplateId, setSendingTemplateId] = useState(null);
+  const [sendPhones, setSendPhones] = useState('');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
   const fileRef = useRef(null);
 
   useEffect(() => { loadTemplates(); }, []);
@@ -60,6 +65,27 @@ export default function Template() {
     } catch {
       toast.error('Failed to update status');
     }
+  };
+
+  const sendMetaTemplate = async (templateId) => {
+    if (!window.confirm('Are you sure you want to send this template?')) return;
+    setIsBroadcasting(true);
+    try {
+      const { data } = await api.post('/api/template/send-meta', {
+        templateId,
+        phones: sendPhones
+      });
+      if (data.success) {
+        toast.success(`Broadcast started to ${data.total} contacts!`);
+        setSendingTemplateId(null);
+        setSendPhones('');
+      } else {
+        toast.error(data.message);
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to start broadcast');
+    }
+    setIsBroadcasting(false);
   };
 
   const handleNameChange = (e) => {
@@ -331,11 +357,48 @@ export default function Template() {
                         {t.metaStatus || 'DRAFT'}
                       </span>
                     </div>
-                    {t.metaTemplateId && (
-                      <button onClick={() => checkStatus(t._id)} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: 11, fontWeight: 600, padding: 0, marginTop: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        Check Approval Status
-                      </button>
+                    
+                    <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                      {t.metaTemplateId && (
+                        <button onClick={() => checkStatus(t._id)} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: 11, fontWeight: 600, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          Check Status
+                        </button>
+                      )}
+                      {t.metaStatus === 'APPROVED' && sendingTemplateId !== t._id && (
+                        <button onClick={() => setSendingTemplateId(t._id)} style={{ background: 'none', border: 'none', color: '#059669', fontSize: 11, fontWeight: 600, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Send size={12}/> Send Broadcast
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Send Broadcast Panel */}
+                    {sendingTemplateId === t._id && (
+                      <div style={{ marginTop: 12, padding: 12, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                        <label style={{ ...S.label, fontSize: 10 }}>Select Customers</label>
+                        <input 
+                          style={{ ...S.input, marginBottom: 8, padding: '8px 10px' }} 
+                          placeholder="Phone numbers (comma separated). Leave blank for ALL contacts." 
+                          value={sendPhones} 
+                          onChange={e => setSendPhones(e.target.value)} 
+                        />
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button 
+                            style={{ flex: 1, padding: '6px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                            onClick={() => sendMetaTemplate(t._id)}
+                            disabled={isBroadcasting}
+                          >
+                            {isBroadcasting ? 'Sending...' : 'Confirm Send'}
+                          </button>
+                          <button 
+                            style={{ padding: '6px 12px', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                            onClick={() => setSendingTemplateId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     )}
+
                   </div>
                 ))}
               </div>

@@ -8,8 +8,14 @@ import { LogIn, User, LayoutDashboard, LogOut } from 'lucide-react';
 export default function Landing() {
   const navigate = useNavigate();
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const token = localStorage.getItem('admin_token');
   const isLoggedIn = !!token;
+
+  const handleSignOut = () => {
+    localStorage.removeItem('admin_token');
+    window.location.reload();
+  };
 
   return (
     <div className={`relative min-h-screen ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
@@ -26,13 +32,33 @@ export default function Landing() {
              <LeverSwitch checked={isDarkMode} onChange={setIsDarkMode} />
           </div>
           {isLoggedIn ? (
-            <button 
-              onClick={() => navigate('/app/dashboard')}
-              title="Go to Dashboard"
-              className="flex items-center justify-center bg-[#1d4ed8] text-white w-10 h-10 rounded-full hover:bg-[#1e3a8a] transition-all shadow-md shadow-blue-500/30 border border-blue-400/30 hover:scale-105"
-            >
-              <User size={20} />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                title="Profile Menu"
+                className="flex items-center justify-center bg-[#1d4ed8] text-white w-10 h-10 rounded-full hover:bg-[#1e3a8a] transition-all shadow-md shadow-blue-500/30 border border-blue-400/30 hover:scale-105"
+              >
+                <User size={20} />
+              </button>
+              
+              {isProfileOpen && (
+                <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl py-2 border z-50 ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-slate-100 text-slate-800'}`}>
+                  <button 
+                    onClick={() => navigate('/app/dashboard')}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-bold flex items-center gap-3 transition-colors ${isDarkMode ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                  >
+                    <LayoutDashboard size={16} className="text-blue-500" /> Dashboard
+                  </button>
+                  <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-zinc-800' : 'bg-slate-100'}`} />
+                  <button 
+                    onClick={handleSignOut}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-bold flex items-center gap-3 transition-colors text-red-500 ${isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-red-50'}`}
+                  >
+                    <LogOut size={16} /> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <button 
               onClick={() => navigate('/login')}

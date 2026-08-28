@@ -9,8 +9,8 @@
   --sb-width:        248px;
   --sb-bg:           linear-gradient(175deg,#0f172a 0%,#1a2540 60%,#0f172a 100%);
   --sb-hover:        rgba(255,255,255,0.07);
-  --sb-active-bg:    rgba(200,16,46,0.18);
-  --sb-active-border:#c8102e;
+  --sb-active-bg:    rgba(59, 130, 246, 0.18);
+  --sb-active-border:#3b82f6;
   --sb-text:         rgba(255,255,255,0.65);
   --sb-text-active:  #ffffff;
   --topbar-h:        60px;
@@ -56,7 +56,7 @@
   content: '';
   position: absolute;
   top:0; left:0; right:0; height:3px;
-  background: linear-gradient(90deg,#c8102e,#ff5c7a,#c8102e);
+  background: linear-gradient(90deg,#1d4ed8,#3b82f6,#1d4ed8);
   background-size: 200% 100%;
   animation: shimmerBar 3s ease infinite;
 }

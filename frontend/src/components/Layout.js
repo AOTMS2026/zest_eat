@@ -112,11 +112,11 @@ export default function Layout() {
 
         <div className="sidebar__header">
           <div className="sidebar__logo">
-            <div className="sidebar__logo-icon">🚀</div>
-            <div>
-              <div className="sidebar__logo-title">Zest Eat</div>
-              <div className="sidebar__logo-sub">WhatsApp Automation</div>
-            </div>
+            <img 
+              src="/zust-eat.png" 
+              alt="Zest Eat Logo" 
+              className="h-10 w-auto object-contain drop-shadow-md"
+            />
           </div>
           <button className="sidebar__close" onClick={() => setSidebarOpen(false)}>
             <X size={17} />

@@ -19,7 +19,7 @@ const S = {
   waMedia: { width: '100%', borderRadius: 6, marginBottom: 6, objectFit: 'cover', maxHeight: 200, backgroundColor: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#54656f' }
 };
 
-export default function YourTemplates() {
+export default function Campaigns() {
   const [templates, setTemplates] = useState([]);
   const [contacts, setContacts] = useState([]);
   

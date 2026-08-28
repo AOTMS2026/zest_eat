@@ -76,10 +76,10 @@
   top:0; left:0; width:100%; height:5px;
   background: transparent; transition: all 0.3s;
 }
-.dash-card.card-red::before    { background: linear-gradient(90deg,#c8102e,#ff5770); }
+.dash-card.card-blue::before    { background: linear-gradient(90deg,#3b82f6,#60a5fa); }
 .dash-card.card-green::before  { background: linear-gradient(90deg,#10b981,#34d399); }
-.dash-card.card-gold::before   { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
-.dash-card.card-orange::before { background: linear-gradient(90deg,#f97316,#fb923c); }
+.dash-card.card-purple::before { background: linear-gradient(90deg,#8b5cf6,#a78bfa); }
+.dash-card.card-red::before    { background: linear-gradient(90deg,#ef4444,#f87171); }
 
 /* ── Stat Card Content ──────────────────────────── */
 .card-header {

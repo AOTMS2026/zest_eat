@@ -1,15 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 import toast from 'react-hot-toast';
-import { ShoppingBag, TrendingUp, Clock, IndianRupee, Wifi, WifiOff, Loader2, RefreshCw, QrCode, Power } from 'lucide-react';
+import { Send, CheckCircle, CheckCheck, XCircle, LayoutDashboard, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './Dashboard.css';
-
-const fmt = (n) => {
-  if (n >= 100000) return '₹' + (n/100000).toFixed(1) + 'L';
-  if (n >= 1000)   return '₹' + (n/1000).toFixed(1) + 'K';
-  return '₹' + n;
-};
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -17,12 +11,20 @@ const CustomTooltip = ({ active, payload, label }) => {
       <div className="custom-tooltip">
         <p className="tooltip-date">{label}</p>
         <p className="tooltip-item">
-          <span>Orders:</span>
-          <span style={{ fontWeight:800, color:'#c8102e' }}>{payload[0]?.value || 0}</span>
+          <span>Sent:</span>
+          <span style={{ fontWeight:800, color:'#3b82f6' }}>{payload[0]?.value || 0}</span>
         </p>
         <p className="tooltip-item">
-          <span>Revenue:</span>
-          <span style={{ fontWeight:800, color:'#10b981' }}>₹{(payload[1]?.value || 0).toLocaleString('en-IN')}</span>
+          <span>Delivered:</span>
+          <span style={{ fontWeight:800, color:'#10b981' }}>{payload[1]?.value || 0}</span>
+        </p>
+        <p className="tooltip-item">
+          <span>Read:</span>
+          <span style={{ fontWeight:800, color:'#8b5cf6' }}>{payload[2]?.value || 0}</span>
+        </p>
+        <p className="tooltip-item">
+          <span>Failed:</span>
+          <span style={{ fontWeight:800, color:'#ef4444' }}>{payload[3]?.value || 0}</span>
         </p>
       </div>
     );
@@ -32,19 +34,14 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Dashboard() {
   const [stats,      setStats]      = useState(null);
-  const [orders,     setOrders]     = useState([]);
-  const [wpp,        setWpp]        = useState({ status:'DISCONNECTED', qr:null });
+  const [chartLogs,  setChartLogs]  = useState([]);
+  const [wpp,        setWpp]        = useState({ status:'DISCONNECTED' });
   const [loading,    setLoading]    = useState(true);
-  const [connecting, setConnecting] = useState(false);
 
   const pollStatus = useCallback(async () => {
     try {
       const { data } = await api.get('/api/whatsapp/status');
-      setWpp(prev => ({
-        status: data.status,
-        qr: data.status === 'CONNECTED' ? null : (data.qr || prev.qr)
-      }));
-      if (data.status !== 'INITIALIZING') setConnecting(false);
+      setWpp({ status: data.status });
     } catch {}
   }, []);
 
@@ -58,40 +55,44 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [s, o] = await Promise.all([
-        api.get('/api/orders/stats/summary'),
-        api.get('/api/orders'),
-      ]);
-      if (s.data.success) setStats(s.data.stats);
-      if (o.data.success) setOrders(o.data.orders);
-    } catch { toast.error('Failed to load data'); }
+      const res = await api.get('/api/template/stats/summary');
+      if (res.data.success) {
+        setStats(res.data.stats);
+        setChartLogs(res.data.chartData || []);
+      }
+    } catch { toast.error('Failed to load dashboard data'); }
     setLoading(false);
   };
-
-
 
   const getChartData = () => {
     const data = [];
     const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    // Last 7 days
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
       data.push({
         date: d.toLocaleDateString('en-IN', { day:'numeric', month:'short' }),
-        orders: 0,
-        revenue: 0,
+        sent: 0,
+        delivered: 0,
+        read: 0,
+        failed: 0,
         rawDate: d,
       });
     }
-    // Use ALL orders (not sliced) so chart matches totalRevenue stat
-    orders.forEach(order => {
-      const orderDate = new Date(order.createdAt);
+
+    chartLogs.forEach(log => {
+      const logDate = new Date(log.timestamp);
+      logDate.setHours(0,0,0,0);
+      
       data.forEach(day => {
-        if (orderDate.toDateString() === day.rawDate.toDateString()) {
-          day.orders += 1;
-          if (order.status === 'delivered') {
-            day.revenue += order.totalAmount || 0;
-          }
+        if (logDate.getTime() === day.rawDate.getTime()) {
+           if (['sent', 'delivered', 'read'].includes(log.status)) day.sent += 1;
+           if (['delivered', 'read'].includes(log.status)) day.delivered += 1;
+           if (log.status === 'read') day.read += 1;
+           if (log.status === 'failed') day.failed += 1;
         }
       });
     });
@@ -99,21 +100,13 @@ export default function Dashboard() {
   };
 
   const statCards = [
-    { label:'Total Orders',    value: stats?.totalOrders ?? 0,     icon:<ShoppingBag size={20}/>,  classType:'card-orange', iconBg:'#FFF0E0', iconColor:'#E05C00' },
-    { label:"Today's Orders",  value: stats?.todayOrders ?? 0,     icon:<TrendingUp size={20}/>,   classType:'card-green',  iconBg:'#D1FADF', iconColor:'#1A7A4A' },
-    { label:'Pending',         value: stats?.pendingOrders ?? 0,   icon:<Clock size={20}/>,         classType:'card-gold',   iconBg:'#FDF3D9', iconColor:'#D4A017' },
-    { label:'Total Revenue',   value: stats ? `₹${(stats.totalRevenue||0).toLocaleString('en-IN')}` : '₹0',
-      icon:<IndianRupee size={20}/>, classType:'card-red', iconBg:'#F5D0D7', iconColor:'#C8102E' },
+    { label:'Sent Messages',   value: stats?.sent ?? 0,      icon:<Send size={20}/>,       classType:'card-blue',   iconBg:'#EFF6FF', iconColor:'#3B82F6' },
+    { label:'Delivered',       value: stats?.delivered ?? 0, icon:<CheckCircle size={20}/>,classType:'card-green',  iconBg:'#D1FADF', iconColor:'#10B981' },
+    { label:'Read',            value: stats?.read ?? 0,      icon:<CheckCheck size={20}/>, classType:'card-purple', iconBg:'#F3E8FF', iconColor:'#8B5CF6' },
+    { label:'Failed',          value: stats?.failed ?? 0,    icon:<XCircle size={20}/>,    classType:'card-red',    iconBg:'#FEE2E2', iconColor:'#EF4444' },
   ];
 
-  const isConnected  = wpp.status === 'CONNECTED';
-  const isLoading    = wpp.status === 'INITIALIZING' || connecting;
-  const wppBannerClass = `wpp-status-banner wpp-${wpp.status.toLowerCase()}`;
-  const dailyTarget  = 10;
-  const todayCount   = stats?.todayOrders ?? 0;
-  const targetPct    = Math.min(100, Math.round((todayCount / dailyTarget) * 100));
-  const chartData    = getChartData();
-  const maxRevenue   = Math.max(...chartData.map(d => d.revenue), 1);
+  const chartData = getChartData();
 
   return (
     <div className="dashboard-page animate-in">
@@ -126,7 +119,7 @@ export default function Dashboard() {
               <span className="stat-label">{label}</span>
               <span className="stat-icon-box" style={{ background:iconBg, color:iconColor }}>{icon}</span>
             </div>
-            <div className="stat-value" style={{ color:iconColor }}>{value}</div>
+            <div className="stat-value" style={{ color:iconColor }}>{value.toLocaleString('en-IN')}</div>
           </div>
         ))}
       </div>
@@ -140,116 +133,79 @@ export default function Dashboard() {
           {/* Chart */}
           <div className="dash-card chart-section">
             <div className="section-title-container">
-              <span className="section-title">Sales & Order Trends</span>
+              <span className="section-title">Campaign Delivery Trends</span>
               <div className="chart-legend">
-                <span><span style={{ background:'#c8102e', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Orders</span>
-                <span><span style={{ background:'#10b981', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Revenue (Delivered)</span>
+                <span><span style={{ background:'#3b82f6', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Sent</span>
+                <span><span style={{ background:'#10b981', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Delivered</span>
+                <span><span style={{ background:'#8b5cf6', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Read</span>
+                <span><span style={{ background:'#ef4444', width:10, height:10, borderRadius:'50%', display:'inline-block', marginRight:5 }}/>Failed</span>
               </div>
             </div>
 
             <div style={{ width:'100%', height:260 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top:10, right:10, left:20, bottom:0 }}>
-                  <defs>
-                    <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#c8102e" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#c8102e" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#10b981" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="date" tick={{ fontSize:11, fill:'#64748b', fontWeight:600 }} stroke="#e2e8f0" />
-                  <YAxis
-                    tick={{ fontSize:11, fill:'#64748b' }}
-                    stroke="#e2e8f0"
-                    width={60}
-                    tickFormatter={(v) => v >= 1000 ? `₹${(v/1000).toFixed(0)}K` : v}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="orders"  stroke="#c8102e" strokeWidth={3} fillOpacity={1} fill="url(#colorOrders)"  />
-                  <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Recent Orders */}
-          <div className="dash-card panel-left">
-            <div className="section-title-container">
-              <span className="section-title">Recent Orders</span>
-              <button onClick={loadData} className="btn-secondary"><RefreshCw size={13}/>Refresh</button>
-            </div>
-            <div style={{ overflowX:'auto' }}>
-              <table className="custom-table">
-                <thead>
-                  <tr>{['Order ID','Phone','Items','Amount','Status'].map(h => <th key={h}>{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {orders.length === 0 ? (
-                    <tr><td colSpan={5} style={{ textAlign:'center', color:'#aaa', padding:28 }}>No orders yet.</td></tr>
-                  ) : orders.slice(0, 10).map(o => (
-                    <tr key={o._id}>
-                      <td style={{ fontWeight:700, color:'#c8102e', fontFamily:'monospace' }}>{o.orderId}</td>
-                      <td>+91 {o.customerPhone}</td>
-                      <td>{o.items?.length || 0} item{o.items?.length !== 1 ? 's' : ''}</td>
-                      <td style={{ fontWeight:700 }}>₹{(o.totalAmount||0).toLocaleString('en-IN')}</td>
-                      <td><span className={`status-badge status-${o.status}`}>{o.status?.replace(/_/g,' ')}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {loading ? (
+                <div className="flex-center h-full"><Loader2 className="spin" style={{ color:'#9ca3af' }} /></div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top:10, right:10, left:-20, bottom:0 }}>
+                    <defs>
+                      <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorDelivered" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorRead" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize:12, fill:'#6b7280' }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize:12, fill:'#6b7280' }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="sent" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorSent)" />
+                    <Area type="monotone" dataKey="delivered" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorDelivered)" />
+                    <Area type="monotone" dataKey="read" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorRead)" />
+                    <Area type="monotone" dataKey="failed" stroke="#ef4444" strokeWidth={2} fill="none" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right */}
+        {/* Right Sidebar */}
         <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
-
-          {/* WhatsApp Connection */}
-          <div className="dash-card panel-right">
-            <div className="section-title-container" style={{ marginBottom:18 }}>
-              <span className="section-title">WhatsApp Connection</span>
+          
+          <div className="dash-card">
+            <h3 className="section-title">Automation Overview</h3>
+            <div className="target-box" style={{ marginTop: 15 }}>
+               <div className="target-label">Active Meta Templates</div>
+               <div className="target-value">{stats?.activeTemplates || 0}</div>
             </div>
-            <div className="wpp-connection-container">
-              <div className={wppBannerClass}>
-                <span className="status-indicator-light"/>
-                <span style={{ fontWeight:800, fontSize:13 }}>
-                  {isConnected ? 'Meta Cloud API Connected' : 'Meta API Not Configured'}
-                </span>
-              </div>
-              <div className="guide-box">
-                <strong style={{ display:'block', marginBottom:6 }}>Meta Cloud API Integration:</strong>
-                <p style={{ margin:0, fontSize:12, color:'#64748b', lineHeight:1.6 }}>
-                  This application is connected to the official Meta WhatsApp Cloud API. 
-                  Connection is managed via static tokens in the backend <code>.env</code> file. 
-                  No QR code scanning is required.
-                </p>
-              </div>
+            <div className="target-box" style={{ marginTop: 15 }}>
+               <div className="target-label">Total Campaigns Run</div>
+               <div className="target-value">{stats?.totalCampaigns || 0}</div>
+            </div>
+            <div className="target-box" style={{ marginTop: 15 }}>
+               <div className="target-label">Total Contacts</div>
+               <div className="target-value">{stats?.totalContacts || 0}</div>
             </div>
           </div>
 
-          {/* Daily Target */}
-          <div className="dash-card panel-right">
-            <div className="section-title-container" style={{ marginBottom:16 }}>
-              <span className="section-title">Daily Sales Target</span>
-            </div>
-            <div className="progress-container">
-              <div className="progress-header">
-                <span>Today's Progress</span>
-                <span style={{ color:'#c8102e', fontWeight:800 }}>{todayCount} / {dailyTarget} Orders ({targetPct}%)</span>
-              </div>
-              <div className="progress-bar-wrapper">
-                <div className="progress-bar-fill" style={{ width:`${targetPct}%` }}/>
-              </div>
-              <p style={{ fontSize:11.5, color:'#64748b', marginTop:8, lineHeight:1.6 }}>
-                Target is 10 orders daily. Send templates to your contacts to drive more purchases!
-              </p>
-            </div>
+          <div className="dash-card">
+             <h3 className="section-title">Quick Actions</h3>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 15 }}>
+                <a href="/campaigns" className="btn-primary" style={{ textAlign: 'center', textDecoration: 'none' }}>New Campaign</a>
+                <a href="/templates" className="btn-secondary" style={{ textAlign: 'center', textDecoration: 'none', background: '#f3f4f6', color: '#374151' }}>Manage Templates</a>
+                <a href="/contacts" className="btn-secondary" style={{ textAlign: 'center', textDecoration: 'none', background: '#f3f4f6', color: '#374151' }}>Import Contacts</a>
+             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

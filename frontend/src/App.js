@@ -5,15 +5,10 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Contacts from './pages/Contacts';
-import Template from './pages/Template';
-import Orders from './pages/Orders';
-import Menu from './pages/Menu';
-import RevenueReports from './pages/RevenueReports';
-import CustomerProfiles from './pages/CustomerProfiles';
-import ScheduleBroadcast from './pages/ScheduleBroadcast';
-import ManualMessage from './pages/ManualMessage';
-import StockManager from './pages/StockManager';
-import YourTemplates from './pages/YourTemplates';
+import TemplateList from './pages/TemplateList';
+import Campaigns from './pages/Campaigns';
+import Analytics from './pages/Analytics';
+import WhatsAppConnection from './pages/WhatsAppConnection';
 import './App.css';
 import './responsive.css';
 
@@ -38,15 +33,10 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard"       element={<Dashboard />} />
           <Route path="contacts"        element={<Contacts />} />
-          <Route path="template"        element={<Template />} />
-          <Route path="orders"          element={<Orders />} />
-          <Route path="menu"            element={<Menu />} />
-          <Route path="revenue"         element={<RevenueReports />} />
-          <Route path="customers"       element={<CustomerProfiles />} />
-          <Route path="schedule"        element={<ScheduleBroadcast />} />
-          <Route path="manual-message"  element={<ManualMessage />} />
-          <Route path="stock"           element={<StockManager />} />
-          <Route path="your-templates"  element={<YourTemplates />} />
+          <Route path="templates"       element={<TemplateList />} />
+          <Route path="campaigns"       element={<Campaigns />} />
+          <Route path="analytics"       element={<Analytics />} />
+          <Route path="connection"      element={<WhatsAppConnection />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

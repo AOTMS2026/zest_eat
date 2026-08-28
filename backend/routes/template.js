@@ -289,6 +289,51 @@ router.get('/meta/:id/status', async (req, res) => {
   }
 });
 
+// GET /api/template/stats/summary
+// Fetches high level metrics and chart data based on MessageLog tracking
+router.get('/stats/summary', async (req, res) => {
+  try {
+    const MessageLog = require('../models/MessageLog');
+    
+    // Global counts based on latest webhook states
+    const logs = await MessageLog.find({});
+    
+    let sent = 0;
+    let delivered = 0;
+    let read = 0;
+    let failed = 0;
+    
+    logs.forEach(log => {
+      // If it reached delivered or read, it was also sent
+      if (['sent', 'delivered', 'read'].includes(log.status)) sent++;
+      if (['delivered', 'read'].includes(log.status)) delivered++;
+      if (log.status === 'read') read++;
+      if (log.status === 'failed') failed++;
+    });
+
+    const activeTemplates = await Template.countDocuments({ metaStatus: 'APPROVED', isActive: true });
+    const totalContacts = await Contact.countDocuments({ optedOut: false });
+    const totalCampaigns = await Template.countDocuments({ contacts: { $not: { $size: 0 } } }); // Templates that have been broadcasted
+
+    res.json({
+      success: true,
+      stats: {
+        sent,
+        delivered,
+        read,
+        failed,
+        activeTemplates,
+        totalContacts,
+        totalCampaigns
+      },
+      chartData: logs // We can pass logs and let frontend group them by date, or aggregate here.
+    });
+  } catch (error) {
+    console.error('Stats Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch stats' });
+  }
+});
+
 const runScheduledTemplates = async () => {
   const now = new Date();
   const due = await Template.find({ isScheduled: true, isActive: true, nextRunAt: { $lte: now }, status: { $ne: 'sending' } });

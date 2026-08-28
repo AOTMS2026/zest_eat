@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Megaphone, ShoppingBag, UtensilsCrossed,
+  LayoutDashboard, Users, Megaphone,
   Wifi, WifiOff, Loader2, Menu, X, List,
-  BarChart2, UserCircle, Clock, MessageCircle, Package, LogOut
+  BarChart2, LogOut, Settings
 } from 'lucide-react';
 import api from '../api';
 import './Layout.css';
@@ -13,26 +13,21 @@ const navGroups = [
     label: 'Overview',
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/orders',    icon: ShoppingBag,     label: 'Orders'    },
-      { to: '/revenue',   icon: BarChart2,        label: 'Revenue'   },
+      { to: '/analytics', icon: BarChart2,       label: 'Analytics' },
     ],
   },
   {
-    label: 'Messaging',
+    label: 'Automation',
     items: [
-      { to: '/template',        icon: Megaphone,       label: 'Template'     },
-      { to: '/your-templates',  icon: List,            label: 'Your Template'},
-      { to: '/schedule',        icon: Clock,           label: 'Schedule'     },
-      { to: '/manual-message',  icon: MessageCircle,   label: 'Send Message' },
+      { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
+      { to: '/templates', icon: List,      label: 'Templates' },
     ],
   },
   {
     label: 'Manage',
     items: [
-      { to: '/contacts',  icon: Users,           label: 'Contacts'  },
-      { to: '/customers', icon: UserCircle,      label: 'Customers' },
-      { to: '/menu',      icon: UtensilsCrossed, label: 'Menu'      },
-      { to: '/stock',     icon: Package,          label: 'Stock'     },
+      { to: '/contacts',   icon: Users,    label: 'Contacts'  },
+      { to: '/connection', icon: Settings, label: 'Connection' },
     ],
   },
 ];
@@ -117,10 +112,10 @@ export default function Layout() {
 
         <div className="sidebar__header">
           <div className="sidebar__logo">
-            <div className="sidebar__logo-icon">🥩</div>
+            <div className="sidebar__logo-icon">🚀</div>
             <div>
-              <div className="sidebar__logo-title">FreshMeat</div>
-              <div className="sidebar__logo-sub">Shop Manager</div>
+              <div className="sidebar__logo-title">Zest Eat</div>
+              <div className="sidebar__logo-sub">WhatsApp Automation</div>
             </div>
           </div>
           <button className="sidebar__close" onClick={() => setSidebarOpen(false)}>

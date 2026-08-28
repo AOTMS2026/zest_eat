@@ -173,8 +173,24 @@ router.post('/send-meta', async (req, res) => {
   if (!template) {
     return res.status(404).json({ success: false, message: 'Template not found' });
   }
-  if (template.metaStatus !== 'APPROVED') {
-    return res.status(400).json({ success: false, message: 'Only APPROVED templates can be sent' });
+  
+  if (!template.metaTemplateId) {
+    return res.status(400).json({ success: false, message: 'This template does not have a valid Meta Template ID attached.' });
+  }
+
+  // Strict Validation: Fetch from Meta to ensure it's still approved right before sending
+  try {
+    const metaData = await getTemplateStatusFromMeta(template.metaTemplateId);
+    if (!metaData || metaData.status !== 'APPROVED') {
+       return res.status(400).json({ success: false, message: `Template is not APPROVED on Meta. Current status: ${metaData?.status || 'UNKNOWN'}` });
+    }
+    // Update local status just in case
+    if (template.metaStatus !== 'APPROVED') {
+      template.metaStatus = 'APPROVED';
+      await template.save();
+    }
+  } catch (e) {
+    return res.status(400).json({ success: false, message: 'Invalid Meta Template ID or template is no longer accessible.' });
   }
 
   let phoneList = [];
@@ -302,6 +318,49 @@ router.post('/meta', upload.single('media'), async (req, res) => {
   } catch (error) {
     console.error('Meta Template API Error:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to create template on Meta' });
+  }
+});
+
+// POST /api/template/import-meta
+// Import a template from Meta by its ID
+router.post('/import-meta', async (req, res) => {
+  const { metaTemplateId, imageUrl } = req.body;
+  
+  if (!metaTemplateId) {
+    return res.status(400).json({ success: false, message: 'Meta Template ID is required' });
+  }
+
+  try {
+    const metaData = await getTemplateStatusFromMeta(metaTemplateId);
+    if (!metaData || !metaData.name) {
+      return res.status(404).json({ success: false, message: 'Template not found on Meta' });
+    }
+
+    // Check if it already exists
+    let template = await Template.findOne({ metaTemplateId });
+    if (template) {
+      return res.status(400).json({ success: false, message: 'Template already exists in database' });
+    }
+
+    template = new Template({
+      name: metaData.name,
+      language: metaData.language,
+      category: metaData.category,
+      components: metaData.components || [],
+      metaTemplateId: metaData.id,
+      metaStatus: metaData.status || 'PENDING',
+      imageUrl: imageUrl || '', // Save user provided imageUrl if applicable
+      title: metaData.name,
+      message: 'Imported Meta Template',
+      status: 'draft'
+    });
+
+    await template.save();
+
+    res.json({ success: true, template, message: 'Template imported successfully' });
+  } catch (error) {
+    console.error('Import Meta Template Error:', error);
+    res.status(500).json({ success: false, message: error.response?.data?.error?.message || error.message || 'Failed to import template' });
   }
 });
 

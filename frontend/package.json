@@ -15,6 +15,7 @@
     "react-router-dom": "^6.18.0",
     "react-scripts": "5.0.1",
     "recharts": "^2.9.0",
+    "styled-components": "^6.5.3",
     "three": "^0.185.1"
   },
   "scripts": {

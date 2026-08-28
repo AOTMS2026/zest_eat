@@ -260,13 +260,39 @@
 
 .topbar__status-label { /* hide on very small screens via media query */ }
 
-/* ── Main content ───────────────────────── */
+/* ── Main content & Pages (Dashboard, Analytics, Campaigns, Templates, Contacts, Connection) ── */
 .main-content {
   flex: 1;
   padding: 28px;
   overflow-y: auto;
   overflow-x: hidden;
   background: #f8fafc;
+  font-family: "Playwrite DE Grund", cursive, sans-serif;
+  font-optical-sizing: auto;
+}
+
+.topbar__title,
+.main-content,
+.main-content h1,
+.main-content h2,
+.main-content h3,
+.main-content h4,
+.main-content p,
+.main-content span,
+.main-content a,
+.main-content button,
+.main-content input,
+.main-content select,
+.main-content textarea,
+.main-content table,
+.main-content th,
+.main-content td,
+.main-content label,
+.main-content strong,
+.playwrite-de-grund {
+  font-family: "Playwrite DE Grund", cursive, sans-serif !important;
+  font-optical-sizing: auto;
+  font-style: normal;
 }
 
 /* ── Utilities ──────────────────────────── */

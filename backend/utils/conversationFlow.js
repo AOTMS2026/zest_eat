@@ -239,19 +239,20 @@ const startMetaTemplate = async (phone, template) => {
   const headerComponent = template.components?.find(c => c.type === 'HEADER' && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(c.format));
   
   if (headerComponent) {
+    let publicUrl = '';
+    
     if (!template.imageUrl) {
-      // If this is an old template that didn't save imageUrl, we must throw an error so the user knows to recreate it.
-      console.log(`❌ Template '${template.name}' requires a media header but imageUrl is missing. User must recreate the template.`);
-      throw new Error(`This template (${template.name}) is missing its Media URL because it was created before the fix. Please create a BRAND NEW template to send media.`);
+      // If this is an old template that didn't save imageUrl, fallback to a placeholder so it doesn't crash Meta
+      console.log(`⚠️ Template '${template.name}' requires a media header but imageUrl is missing. Using fallback image.`);
+      publicUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/No_image_available.svg/300px-No_image_available.svg.png'; // safe standard PNG
+    } else {
+      // Fix the campaigns path just in case it was saved incorrectly
+      let rawPath = template.imageUrl;
+      if (rawPath && !rawPath.includes('/campaigns/') && rawPath.startsWith('/uploads/')) {
+         rawPath = rawPath.replace('/uploads/', '/uploads/campaigns/');
+      }
+      publicUrl = `https://zest-eat.onrender.com${rawPath}`;
     }
-    
-    // Fix the campaigns path just in case it was saved incorrectly
-    let rawPath = template.imageUrl;
-    if (rawPath && !rawPath.includes('/campaigns/') && rawPath.startsWith('/uploads/')) {
-       rawPath = rawPath.replace('/uploads/', '/uploads/campaigns/');
-    }
-    
-    const publicUrl = `https://zest-eat.onrender.com${rawPath}`;
     components.push({
       type: 'header',
       parameters: [

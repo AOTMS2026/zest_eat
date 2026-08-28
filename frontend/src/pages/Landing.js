@@ -27,7 +27,7 @@ export default function Landing() {
           </div>
           {isLoggedIn ? (
             <button 
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/app/dashboard')}
               title="Go to Dashboard"
               className="flex items-center justify-center bg-[#1d4ed8] text-white w-10 h-10 rounded-full hover:bg-[#1e3a8a] transition-all shadow-md shadow-blue-500/30 border border-blue-400/30 hover:scale-105"
             >

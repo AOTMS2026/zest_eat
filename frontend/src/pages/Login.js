@@ -23,7 +23,7 @@ export default function Login() {
       if (data.success) {
         localStorage.setItem('admin_token', data.token);
         toast.success('Login successful! Welcome to Zest Eat 👋');
-        window.location.href = '/dashboard';
+        window.location.href = '/app/dashboard';
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid email or password');

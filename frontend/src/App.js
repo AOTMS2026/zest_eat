@@ -13,7 +13,7 @@ import CustomerProfiles from './pages/CustomerProfiles';
 import ScheduleBroadcast from './pages/ScheduleBroadcast';
 import ManualMessage from './pages/ManualMessage';
 import StockManager from './pages/StockManager';
-import ImportTemplate from './pages/ImportTemplate';
+import YourTemplates from './pages/YourTemplates';
 import './App.css';
 import './responsive.css';
 
@@ -46,7 +46,7 @@ export default function App() {
           <Route path="schedule"        element={<ScheduleBroadcast />} />
           <Route path="manual-message"  element={<ManualMessage />} />
           <Route path="stock"           element={<StockManager />} />
-          <Route path="import-template" element={<ImportTemplate />} />
+          <Route path="your-templates"  element={<YourTemplates />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

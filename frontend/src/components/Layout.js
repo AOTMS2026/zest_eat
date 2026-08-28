@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Megaphone, ShoppingBag, UtensilsCrossed,
-  Wifi, WifiOff, Loader2, Menu, X, DownloadCloud,
+  Wifi, WifiOff, Loader2, Menu, X, List,
   BarChart2, UserCircle, Clock, MessageCircle, Package, LogOut
 } from 'lucide-react';
 import api from '../api';
@@ -21,7 +21,7 @@ const navGroups = [
     label: 'Messaging',
     items: [
       { to: '/template',        icon: Megaphone,       label: 'Template'     },
-      { to: '/import-template', icon: DownloadCloud,   label: 'Import Meta'  },
+      { to: '/your-templates',  icon: List,            label: 'Your Template'},
       { to: '/schedule',        icon: Clock,           label: 'Schedule'     },
       { to: '/manual-message',  icon: MessageCircle,   label: 'Send Message' },
     ],

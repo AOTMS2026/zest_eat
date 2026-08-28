@@ -24,7 +24,6 @@ const S = {
 };
 
 export default function Template() {
-  const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   
   // Builder State
@@ -41,105 +40,7 @@ export default function Template() {
   const [footerText, setFooterText] = useState('');
   const [buttons, setButtons] = useState([]);
   
-  // Active Preview State
-  const [activePreviewId, setActivePreviewId] = useState(null);
-  
-  // Sending State
-  const [sendingTemplateId, setSendingTemplateId] = useState(null);
-  const [sendMode, setSendMode] = useState('ALL'); // 'ALL' or 'SELECT'
-  const [sendPhones, setSendPhones] = useState([]); // Array of selected phone numbers
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
-  
-  const [contacts, setContacts] = useState([]);
-
   const fileRef = useRef(null);
-
-  useEffect(() => { 
-    loadTemplates(); 
-    loadContacts();
-  }, []);
-
-  const loadContacts = async () => {
-    try {
-      const { data } = await api.get('/api/contacts');
-      if (data.success) setContacts(data.contacts || []);
-    } catch (e) { console.error('Failed to load contacts', e); }
-  };
-
-  const loadTemplates = async () => {
-    try {
-      const { data } = await api.get('/api/template');
-      if (data.success) setTemplates(data.templates || []);
-    } catch (e) { console.error(e); }
-  };
-
-  const checkStatus = async (id) => {
-    try {
-      await api.get(`/api/template/meta/${id}/status`);
-      loadTemplates();
-      toast.success('Status updated');
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Failed to update status');
-    }
-  };
-
-  const sendMetaTemplate = async (templateId, isTest = false) => {
-    const template = templates.find(t => t._id === templateId);
-    if (!template) return toast.error('Template not found');
-
-    if (!isTest && sendMode === 'SELECT' && sendPhones.length === 0) {
-      return toast.error('Please select at least one contact.');
-    }
-    
-    const recipientsCount = isTest ? 1 : (sendMode === 'ALL' ? contacts.filter(c => !c.optedOut).length : sendPhones.length);
-    
-    const confirmMessage = `Are you sure you want to send this template?\n\n` +
-      `Template Name: ${template.name}\n` +
-      `Meta Template ID: ${template.metaTemplateId || 'N/A'}\n` +
-      `Category: ${template.category}\n` +
-      `Language: ${template.language}\n` +
-      `Recipients: ${recipientsCount} contact(s)\n\n` +
-      (isTest ? `(TEST MODE: Sending to ONE contact only)` : `(BULK SEND: Sending to ${recipientsCount} contacts)`);
-
-    if (!window.confirm(confirmMessage)) return;
-    setIsBroadcasting(true);
-    
-    try {
-      let phonesPayload = '';
-      if (isTest) {
-         // Grab first available contact or the first selected one
-         phonesPayload = (sendPhones.length > 0) ? sendPhones[0] : (contacts.find(c => !c.optedOut)?.phone || '');
-         if (!phonesPayload) throw new Error('No contacts available for testing');
-      } else {
-         phonesPayload = sendMode === 'ALL' ? '' : sendPhones.join(',');
-      }
-      
-      const { data } = await api.post('/api/template/send-meta', {
-        templateId,
-        phones: phonesPayload
-      });
-      
-      if (data.success) {
-        toast.success(`Broadcast started to ${data.total} contacts!`);
-        setSendingTemplateId(null);
-        setSendPhones([]);
-        setSendMode('ALL');
-      } else {
-        toast.error(data.message);
-      }
-    } catch (e) {
-      toast.error(e.response?.data?.message || e.message || 'Failed to start broadcast');
-    }
-    setIsBroadcasting(false);
-  };
-  
-  const toggleContact = (phone) => {
-    if (sendPhones.includes(phone)) {
-      setSendPhones(sendPhones.filter(p => p !== phone));
-    } else {
-      setSendPhones([...sendPhones, phone]);
-    }
-  };
 
   const handleNameChange = (e) => {
     setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
@@ -227,19 +128,14 @@ export default function Template() {
         toast.success('Template submitted to Meta successfully!');
         setName(''); setHeaderText(''); setBodyText(''); setFooterText(''); setButtons([]); 
         setMediaFile(null); setMediaPreview(null); setHeaderType('NONE');
-        loadTemplates();
       } else {
         toast.error(data.message);
       }
     } catch (e) {
       toast.error(e.response?.data?.message || 'Submission failed');
     }
-    setLoading(false);
   };
 
-  // Determine what to show in the preview
-  const previewData = activePreviewId ? templates.find(t => t._id === activePreviewId) : null;
-  
   let pHeaderType = headerType;
   let pHeaderText = headerText;
   let pMediaUrl = mediaPreview;
@@ -247,38 +143,10 @@ export default function Template() {
   let pFooterText = footerText;
   let pButtons = buttons;
 
-  if (previewData) {
-    const headerComp = previewData.components?.find(c => c.type === 'HEADER');
-    if (headerComp) {
-      pHeaderType = headerComp.format;
-      pHeaderText = headerComp.text || '';
-      if (['IMAGE', 'VIDEO'].includes(pHeaderType)) {
-        pMediaUrl = previewData.imageUrl;
-        if (pMediaUrl && !pMediaUrl.includes('/campaigns/') && pMediaUrl.startsWith('/uploads/')) {
-           pMediaUrl = pMediaUrl.replace('/uploads/', '/uploads/campaigns/');
-        }
-        if (pMediaUrl) pMediaUrl = `https://zest-eat.onrender.com${pMediaUrl}`;
-      }
-    } else {
-      pHeaderType = 'NONE';
-    }
-    
-    pBodyText = previewData.components?.find(c => c.type === 'BODY')?.text || '';
-    pFooterText = previewData.components?.find(c => c.type === 'FOOTER')?.text || '';
-    
-    const btnComp = previewData.components?.find(c => c.type === 'BUTTONS');
-    pButtons = btnComp ? btnComp.buttons : [];
-  }
-
   return (
     <div style={S.page}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1e293b' }}>Meta Template Manager</h2>
-        {activePreviewId && (
-          <button className="btn-secondary" onClick={() => setActivePreviewId(null)}>
-            Back to Builder Preview
-          </button>
-        )}
+        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1e293b' }}>Template Builder</h2>
       </div>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24 }}>
@@ -396,7 +264,7 @@ export default function Template() {
           <div style={S.card}>
              <div style={S.title}>
                 <Eye size={18} color="#059669" /> 
-                {activePreviewId ? `Previewing: ${previewData?.name}` : 'Builder Preview'}
+                Live Builder Preview
              </div>
              <div style={S.waBg}>
                 <div style={S.waBubble}>
@@ -437,115 +305,6 @@ export default function Template() {
                    ))}
                 </div>
              </div>
-          </div>
-
-          <div style={S.card}>
-            <div style={S.title}>Your Templates</div>
-            {templates.length === 0 ? (
-              <p style={{ color: '#aaa', fontSize: 13 }}>No templates created yet.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 400, overflowY: 'auto' }}>
-                {templates.map(t => (
-                  <div 
-                    key={t._id} 
-                    style={{ border: activePreviewId === t._id ? '2px solid #059669' : '1px solid #e2e8f0', borderRadius: 10, padding: 15, background: activePreviewId === t._id ? '#ecfdf5' : '#fafafa', cursor: 'pointer', transition: 'all 0.2s' }}
-                    onClick={() => setActivePreviewId(t._id)}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                      <div>
-                        <strong style={{ fontSize: 14, color: '#1e293b', display: 'block' }}>{t.name || t.title}</strong>
-                        {t.metaTemplateId && <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>ID: {t.metaTemplateId}</span>}
-                      </div>
-                      <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 12, fontWeight: 700, background: t.metaStatus === 'APPROVED' ? '#dcfce7' : t.metaStatus === 'REJECTED' ? '#fee2e2' : '#fef3c7', color: t.metaStatus === 'APPROVED' ? '#166534' : t.metaStatus === 'REJECTED' ? '#991b1b' : '#92400e' }}>
-                        {t.metaStatus || 'DRAFT'}
-                      </span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                      {t.metaTemplateId && (
-                        <button onClick={() => checkStatus(t._id)} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: 11, fontWeight: 600, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          Check Status
-                        </button>
-                      )}
-                      {t.metaStatus === 'APPROVED' && sendingTemplateId !== t._id && (
-                        <button onClick={() => setSendingTemplateId(t._id)} style={{ background: 'none', border: 'none', color: '#059669', fontSize: 11, fontWeight: 600, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <Send size={12}/> Send Broadcast
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Send Broadcast Panel */}
-                    {sendingTemplateId === t._id && (
-                      <div style={{ marginTop: 12, padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 12 }}>Select Audience</div>
-                        
-                        <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                            <input type="radio" name="sendMode" checked={sendMode === 'ALL'} onChange={() => setSendMode('ALL')} />
-                            All Customers ({contacts.length})
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                            <input type="radio" name="sendMode" checked={sendMode === 'SELECT'} onChange={() => setSendMode('SELECT')} />
-                            Specific Customers
-                          </label>
-                        </div>
-                        
-                        {sendMode === 'SELECT' && (
-                          <div style={{ border: '1px solid #e2e8f0', borderRadius: 6, maxHeight: 150, overflowY: 'auto', marginBottom: 16, background: '#fafafa' }}>
-                            {contacts.length === 0 ? (
-                               <div style={{ padding: 12, fontSize: 12, color: '#94a3b8' }}>No contacts found in database.</div>
-                            ) : (
-                               contacts.map(c => (
-                                 <label key={c._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
-                                   <input type="checkbox" checked={sendPhones.includes(c.phone)} onChange={() => toggleContact(c.phone)} />
-                                   <div style={{ flex: 1 }}>
-                                      <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{c.name || 'Unknown'}</div>
-                                      <div style={{ fontSize: 11, color: '#64748b' }}>{c.phone}</div>
-                                   </div>
-                                 </label>
-                               ))
-                            )}
-                          </div>
-                        )}
-                        
-                        <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
-                          <button 
-                            style={{ width: '100%', padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
-                            onClick={() => sendMetaTemplate(t._id, true)}
-                            disabled={isBroadcasting}
-                            onMouseOver={e => e.currentTarget.style.background = '#2563eb'}
-                            onMouseOut={e => e.currentTarget.style.background = '#3b82f6'}
-                          >
-                            🧪 Test Send (1 Contact)
-                          </button>
-                          
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <button 
-                              style={{ flex: 1, padding: '10px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
-                              onClick={() => sendMetaTemplate(t._id, false)}
-                              disabled={isBroadcasting}
-                              onMouseOver={e => e.currentTarget.style.background = '#047857'}
-                              onMouseOut={e => e.currentTarget.style.background = '#059669'}
-                            >
-                              🚀 {isBroadcasting ? 'Sending...' : sendMode === 'ALL' ? `Bulk Send to All (${contacts.length})` : `Bulk Send to ${sendPhones.length}`}
-                            </button>
-                            <button 
-                              style={{ padding: '10px 16px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
-                              onClick={() => { setSendingTemplateId(null); setSendMode('ALL'); setSendPhones([]); }}
-                              onMouseOver={e => e.currentTarget.style.background = '#e2e8f0'}
-                              onMouseOut={e => e.currentTarget.style.background = '#f1f5f9'}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 

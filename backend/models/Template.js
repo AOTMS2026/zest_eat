@@ -1,10 +1,21 @@
 const mongoose = require('mongoose');
 
 const templateSchema = new mongoose.Schema({
-  title:           { type: String, required: true },
-  message:         { type: String, required: true },
+  // New Meta specific fields
+  name:            { type: String, required: true }, // lowercase and underscores only
+  category:        { type: String, required: true, enum: ['MARKETING', 'UTILITY', 'AUTHENTICATION'] },
+  language:        { type: String, required: true, default: 'en_US' },
+  components:      { type: Array, default: [] }, // Stores the raw Meta components array
+  metaTemplateId:  { type: String }, // Returned from Meta after creation
+  metaStatus:      { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'DRAFT'], default: 'DRAFT' },
+
+  // Original fields (kept for legacy/fallback)
+  title:           { type: String }, 
+  message:         { type: String }, 
   footer:          { type: String, default: '' },
   imageUrl:        { type: String, default: '' },
+  
+  // Stats & Scheduling (unchanged)
   contacts:        [{ type: String }],
   totalSent:       { type: Number, default: 0 },
   totalFailed:     { type: Number, default: 0 },
@@ -17,7 +28,6 @@ const templateSchema = new mongoose.Schema({
     default: 'draft',
   },
   sentAt:       Date,
-  // Scheduling
   isScheduled:  { type: Boolean, default: false },
   scheduleTime: { type: String, default: '' },     // "HH:MM"
   repeatDaily:  { type: Boolean, default: false },

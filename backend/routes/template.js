@@ -6,6 +6,7 @@ const Template = require('../models/Template');
 const Contact  = require('../models/Contact');
 const { getClient, initWhatsApp, getStatus } = require('../utils/whatsappService');
 const { ConversationFlow } = require('../utils/conversationFlow');
+const { createTemplateOnMeta, getTemplateStatusFromMeta, uploadMediaToMeta } = require('../utils/metaTemplateService');
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '../uploads/campaigns/'),
@@ -182,6 +183,78 @@ router.delete('/schedule/:id', async (req, res) => {
 router.get('/', async (req, res) => {
   const templates = await Template.find({ isScheduled: { $ne: true } }).sort('-createdAt');
   res.json({ success: true, templates });
+});
+
+// POST /api/template/meta
+// Create a new template directly on Meta WhatsApp Cloud API
+router.post('/meta', upload.single('media'), async (req, res) => {
+  let { name, language, category, components } = req.body;
+  
+  if (typeof components === 'string') {
+    components = JSON.parse(components);
+  }
+  
+  if (!name || !language || !category || !components) {
+    return res.status(400).json({ success: false, message: 'Missing required Meta template fields' });
+  }
+
+  try {
+    // 1. Upload media if provided
+    if (req.file) {
+      const handle = await uploadMediaToMeta(req.file.path, req.file.mimetype, req.file.size);
+      
+      // Inject handle into HEADER component
+      const headerIndex = components.findIndex(c => c.type === 'HEADER');
+      if (headerIndex !== -1) {
+        components[headerIndex].example = { header_handle: [handle] };
+      }
+    }
+
+    // 2. Submit to Meta
+    const metaResponse = await createTemplateOnMeta(name, language, category, components);
+    
+    // 2. Save in database
+    const template = new Template({
+      name,
+      language,
+      category,
+      components,
+      metaTemplateId: metaResponse.id,
+      metaStatus: metaResponse.status || 'PENDING',
+      title: name, // fallback display
+      message: 'Meta Template', // fallback
+      status: 'draft'
+    });
+    
+    await template.save();
+    
+    res.json({ success: true, template, message: 'Template submitted to Meta successfully!' });
+  } catch (error) {
+    console.error('Meta Template API Error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to create template on Meta' });
+  }
+});
+
+// GET /api/template/meta/:id/status
+// Check the approval status of a Meta template
+router.get('/meta/:id/status', async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template || !template.metaTemplateId) {
+      return res.status(404).json({ success: false, message: 'Meta template not found' });
+    }
+    
+    const metaData = await getTemplateStatusFromMeta(template.metaTemplateId);
+    
+    if (metaData && metaData.status) {
+      template.metaStatus = metaData.status;
+      await template.save();
+    }
+    
+    res.json({ success: true, status: template.metaStatus });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 const runScheduledTemplates = async () => {

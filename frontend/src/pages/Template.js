@@ -1,418 +1,348 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import toast from 'react-hot-toast';
-import {
-  Send, Image as Img, Users, CheckSquare, Square, Clock,
-  CheckCircle, X, Eye, RefreshCw, Search, Upload
-} from 'lucide-react';
+import { Send, Plus, Trash2, LayoutTemplate, Link as LinkIcon, Phone, Image as ImageIcon, Video, FileText, Type, Eye } from 'lucide-react';
 
-/* ── Inline style objects ───────────────────────────────────── */
 const S = {
   page:  { animation: 'fadeIn .35s ease' },
   card:  { background: '#fff', borderRadius: 16, padding: '22px 24px', boxShadow: '0 2px 12px rgba(0,0,0,.07)', border: '1px solid #f0f0f0', marginBottom: 16 },
-  title: { fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 },
-  label: { display: 'block', fontSize: 11.5, fontWeight: 700, color: '#555', marginBottom: 6, textTransform: 'uppercase', letterSpacing: .5 },
+  title: { fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 },
+  label: { display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 6, textTransform: 'uppercase', letterSpacing: .5 },
   input: { width: '100%', padding: '11px 13px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 13, outline: 'none', fontFamily: 'inherit', transition: 'border .2s', marginBottom: 12, boxSizing: 'border-box', background: '#fafafa' },
+  select: { width: '100%', padding: '11px 13px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 12, background: '#fafafa', cursor: 'pointer' },
   btn:   { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', borderRadius: 9, fontWeight: 600, fontSize: 13, cursor: 'pointer', border: 'none', transition: 'all .18s' },
-};
-
-const PREVIEW_REPLACE = (text) => !text ? '' : text
-  .replace(/{Name}/gi,  'Ramesh')
-  .replace(/{Email}/gi, 'ramesh@gmail.com')
-  .replace(/{Phone}/gi, '9876543210');
-
-const STATUS = {
-  sending:   { bg: '#fff7ed', color: '#c2410c', dot: '#f97316', label: 'Sending'   },
-  completed: { bg: '#f0fdf4', color: '#15803d', dot: '#22c55e', label: 'Completed' },
-  failed:    { bg: '#fef2f2', color: '#dc2626', dot: '#ef4444', label: 'Failed'    },
-  scheduled: { bg: '#eff6ff', color: '#1d4ed8', dot: '#3b82f6', label: 'Scheduled' },
-  draft:     { bg: '#f8fafc', color: '#64748b', dot: '#94a3b8', label: 'Draft'     },
+  
+  // WhatsApp Preview Styles
+  waBg: { background: '#efeae2', padding: 20, borderRadius: 16, border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minHeight: 300, position: 'relative' },
+  waBubble: { background: '#fff', padding: 4, borderRadius: '0 8px 8px 8px', maxWidth: '85%', boxShadow: '0 1px 1px rgba(0,0,0,0.1)', position: 'relative' },
+  waContent: { padding: '6px 8px 8px 8px' },
+  waHeader: { fontWeight: 700, fontSize: 14, color: '#111b21', marginBottom: 4 },
+  waBody: { fontSize: 14, color: '#111b21', whiteSpace: 'pre-wrap', lineHeight: 1.4 },
+  waFooter: { fontSize: 11, color: '#667781', marginTop: 4 },
+  waBtn: { borderTop: '1px solid #f0f2f5', padding: '10px 0', textAlign: 'center', color: '#00a884', fontSize: 14, fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, cursor: 'default' },
+  waMedia: { width: '100%', borderRadius: 6, marginBottom: 6, objectFit: 'cover', maxHeight: 200, backgroundColor: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#54656f' }
 };
 
 export default function Template() {
-  const [form, setForm]                   = useState({ title: 'Fresh Stock Available! 🥩', message: '', footer: '' });
-  const [image, setImage]                 = useState(null);
-  const [preview, setPreview]             = useState(null);
-  const [contacts, setContacts]           = useState([]);
-  const [selected, setSelected]           = useState([]);
-  const [sending, setSending]             = useState(false);
-  const [templates, setTemplates]         = useState([]);
-  const [recipientMode, setRecipientMode] = useState('all');
-  const [contactSearch, setContactSearch] = useState('');
-  const [expandedId, setExpandedId]       = useState(null);
-  const [dragging, setDragging]           = useState(false);
-  const [isMobile, setIsMobile]           = useState(window.innerWidth < 768);
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+  // Builder State
+  const [category, setCategory] = useState('MARKETING');
+  const [name, setName] = useState('');
+  const [language, setLanguage] = useState('en_US');
+  
+  const [headerType, setHeaderType] = useState('NONE'); // NONE, TEXT, IMAGE, VIDEO, DOCUMENT
+  const [headerText, setHeaderText] = useState('');
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  
+  const [bodyText, setBodyText] = useState('');
+  const [footerText, setFooterText] = useState('');
+  const [buttons, setButtons] = useState([]);
+  
+  const fileRef = useRef(null);
 
-  const fileRef  = useRef();
-  const titleRef = useRef();
-  const msgRef   = useRef();
-
-  useEffect(() => { loadContacts(); loadTemplates(); }, []);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const loadContacts = async () => {
-    try {
-      const { data } = await api.get('/api/contacts');
-      if (data.success) setContacts(data.contacts.filter(c => !c.optedOut));
-    } catch {}
-  };
+  useEffect(() => { loadTemplates(); }, []);
 
   const loadTemplates = async () => {
     try {
       const { data } = await api.get('/api/template');
-      if (data.success) {
-        setTemplates(data.templates || []);
-      }
-    } catch (e) {
-      console.error('loadTemplates error:', e);
+      if (data.success) setTemplates(data.templates || []);
+    } catch (e) { console.error(e); }
+  };
+
+  const checkStatus = async (id) => {
+    try {
+      await api.get(`/api/template/meta/${id}/status`);
+      loadTemplates();
+      toast.success('Status updated');
+    } catch {
+      toast.error('Failed to update status');
     }
   };
 
-  const handleImage = (file) => {
-    if (!file || !file.type.startsWith('image/')) { toast.error('Select an image file'); return; }
-    setImage(file);
-    setPreview(URL.createObjectURL(file));
+  const handleNameChange = (e) => {
+    setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
+  };
+  
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Validate based on headerType
+    if (headerType === 'IMAGE' && !file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+    }
+    if (headerType === 'VIDEO' && !file.type.startsWith('video/')) {
+        toast.error('Please select a video file');
+        return;
+    }
+
+    setMediaFile(file);
+    setMediaPreview(URL.createObjectURL(file));
   };
 
-  const insertVar = (ref, field, v) => {
-    const el = ref.current; if (!el) return;
-    const s = el.selectionStart || 0, e = el.selectionEnd || 0;
-    const val = form[field];
-    setForm(f => ({ ...f, [field]: val.substring(0,s) + `{${v}}` + val.substring(e) }));
-    setTimeout(() => { el.focus(); el.selectionStart = el.selectionEnd = s + v.length + 2; }, 0);
+  const addButton = (type) => {
+    if (buttons.length >= 3) return toast.error('Maximum 3 buttons allowed');
+    if (type === 'PHONE_NUMBER') setButtons([...buttons, { type: 'PHONE_NUMBER', text: 'Call Us', phone_number: '+91' }]);
+    else if (type === 'URL') setButtons([...buttons, { type: 'URL', text: 'Visit Website', url: 'https://' }]);
+    else if (type === 'QUICK_REPLY') setButtons([...buttons, { type: 'QUICK_REPLY', text: 'Yes, I am interested' }]);
+    else if (type === 'COPY_CODE') setButtons([...buttons, { type: 'COPY_CODE', example: 'SALE20' }]);
   };
 
-  const toggleContact = (phone) =>
-    setSelected(s => s.includes(phone) ? s.filter(p => p !== phone) : [...s, phone]);
+  const removeButton = (i) => setButtons(buttons.filter((_, idx) => idx !== i));
+  const updateButton = (i, field, value) => {
+    const newBtns = [...buttons];
+    newBtns[i][field] = value;
+    setButtons(newBtns);
+  };
 
-  const send = async () => {
-    if (!form.message.trim()) { toast.error('Enter a message body'); return; }
-    const phones = recipientMode === 'all' ? contacts.map(c => c.phone) : selected;
-    if (!phones.length) { toast.error('No contacts selected'); return; }
-    setSending(true);
+  const submitMetaTemplate = async () => {
+    if (!name || !bodyText) return toast.error('Template Name and Body are required');
+    if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType) && !mediaFile) return toast.error('Please select a media file for the header');
+
+    setLoading(true);
+    
+    const components = [];
+    
+    // Header Component
+    if (headerType === 'TEXT' && headerText) {
+      components.push({ type: 'HEADER', format: 'TEXT', text: headerText });
+    } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType)) {
+      components.push({ type: 'HEADER', format: headerType });
+    }
+    
+    components.push({ type: 'BODY', text: bodyText });
+    
+    if (footerText) components.push({ type: 'FOOTER', text: footerText });
+    
+    if (buttons.length > 0) {
+      components.push({
+        type: 'BUTTONS',
+        buttons: buttons.map(b => {
+          if (b.type === 'PHONE_NUMBER') return { type: 'PHONE_NUMBER', text: b.text, phone_number: b.phone_number };
+          if (b.type === 'URL') return { type: 'URL', text: b.text, url: b.url };
+          if (b.type === 'COPY_CODE') return { type: 'COPY_CODE', example: b.example };
+          if (b.type === 'QUICK_REPLY') return { type: 'QUICK_REPLY', text: b.text };
+          return b;
+        })
+      });
+    }
+
     try {
       const fd = new FormData();
-      fd.append('title', form.title);
-      fd.append('message', form.message);
-      fd.append('footer', form.footer);
-      fd.append('phones', JSON.stringify(phones));
-      if (image) fd.append('image', image);
-      const { data } = await api.post('/api/template/send', fd);
+      fd.append('name', name);
+      fd.append('language', language);
+      fd.append('category', category);
+      fd.append('components', JSON.stringify(components));
+      
+      if (mediaFile) {
+        fd.append('media', mediaFile);
+      }
+
+      const { data } = await api.post('/api/template/meta', fd, { headers: { 'Content-Type': 'multipart/form-data' }});
+      
       if (data.success) {
-        toast.success(`🚀 Sending to ${data.total} contacts!`);
-        setForm(f => ({ ...f, message: '', footer: '' }));
-        setImage(null); setPreview(null);
-        setTimeout(loadTemplates, 1500);
-      } else toast.error(data.message);
-    } catch { toast.error('Failed to send'); }
-    setSending(false);
+        toast.success('Template submitted to Meta successfully!');
+        setName(''); setHeaderText(''); setBodyText(''); setFooterText(''); setButtons([]); 
+        setMediaFile(null); setMediaPreview(null); setHeaderType('NONE');
+        loadTemplates();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Submission failed');
+    }
+    setLoading(false);
   };
 
-  const recipientCount = recipientMode === 'all' ? contacts.length : selected.length;
-  const filtered = contacts.filter(c =>
-    !contactSearch ||
-    (c.name||'').toLowerCase().includes(contactSearch.toLowerCase()) ||
-    (c.phone||'').includes(contactSearch)
-  );
-
-  /* ── Chips ─────────────────────────────────────────────── */
-  const VarChip = ({ field, ref_, v }) => (
-    <button onClick={() => insertVar(ref_, field, v)} style={{
-      padding:'2px 9px', borderRadius:20, border:'1px dashed #c8102e',
-      background:'#fff5f5', color:'#c8102e', fontSize:11, fontWeight:600,
-      cursor:'pointer', fontFamily:'monospace'
-    }}>{`{${v}}`}</button>
-  );
-
   return (
-    <div style={S.page} className="animate-in">
-
-      {/* Top bar */}
-      <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'flex-start', marginBottom:20, gap: 12 }}>
+    <div style={S.page}>
+      <h2 style={{ marginBottom: 20, fontSize: 24, fontWeight: 800, color: '#1e293b' }}>Meta Template Manager</h2>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24 }}>
+        
+        {/* BUILDER PANEL */}
         <div>
-          <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight:800, color:'#0f172a', margin:0 }}>Broadcast Templates</h1>
-          <p style={{ fontSize:13, color:'#64748b', marginTop:4 }}>Compose and send WhatsApp campaigns to your customers</p>
-        </div>
-        <button onClick={loadTemplates} style={{ display:'flex', alignItems:'center', justifyContent: isMobile ? 'center' : 'flex-start', gap:6, padding:'8px 16px', borderRadius:10, border:'1px solid #e2e8f0', background:'#fff', color:'#475569', fontSize:12.5, fontWeight:600, cursor:'pointer' }}>
-          <RefreshCw size={13} /> Refresh
-        </button>
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 400px', gap: 20, alignItems: 'start', width: '100%' }}>
-
-        {/* ── LEFT: Compose ─────────────────────────────── */}
-        <div>
-          {/* Compose card */}
-          <div style={{ ...S.card, padding: isMobile ? '16px 16px' : '22px 24px' }}>
-            <div style={S.title}><Send size={16} color="#c8102e" />Compose Message</div>
-
-            {/* Header */}
-            <div style={{ marginBottom:16 }}>
-              <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent:'space-between', marginBottom:6, gap: isMobile ? 6 : 0 }}>
-                <label style={{ ...S.label, margin:0 }}>Header Title</label>
-                <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                  {['Name','Phone','Email'].map(v => <VarChip key={v} field="title" ref_={titleRef} v={v} />)}
-                </div>
+          <div style={S.card}>
+            <div style={S.title}><LayoutTemplate size={18} color="#2563eb" /> Set up your template</div>
+            
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label style={S.label}>Category</label>
+                <select style={S.select} value={category} onChange={e => setCategory(e.target.value)}>
+                  <option value="MARKETING">Marketing (Promotions, Offers)</option>
+                  <option value="UTILITY">Utility (Order updates, Alerts)</option>
+                  <option value="AUTHENTICATION">Authentication (OTPs)</option>
+                </select>
               </div>
-              <input ref={titleRef} style={S.input} value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. Fresh Stock Available! 🥩" />
+              <div style={{ flex: 1 }}>
+                <label style={S.label}>Language</label>
+                <select style={S.select} value={language} onChange={e => setLanguage(e.target.value)}>
+                  <option value="en_US">English (US)</option>
+                  <option value="en_UK">English (UK)</option>
+                </select>
+              </div>
             </div>
 
-            {/* Body */}
-            <div style={{ marginBottom:16 }}>
-              <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent:'space-between', marginBottom:6, gap: isMobile ? 6 : 0 }}>
-                <label style={{ ...S.label, margin:0 }}>Message Body *</label>
-                <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                  {['Name','Phone','Email'].map(v => <VarChip key={v} field="message" ref_={msgRef} v={v} />)}
-                </div>
-              </div>
-              <textarea ref={msgRef} rows={5} style={{ ...S.input, resize:'vertical', lineHeight:1.7, marginBottom:4 }}
-                value={form.message}
-                onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                placeholder="Write your message... Use {Name} to personalise." />
-              <div style={{ fontSize:11, color:'#94a3b8', textAlign:'right' }}>{form.message.length} characters</div>
+            <label style={S.label}>Template Name</label>
+            <input style={S.input} placeholder="e.g. fresh_stock_alert" value={name} onChange={handleNameChange} />
+            <p style={{ fontSize: 11, color: '#64748b', marginTop: -8, marginBottom: 16 }}>Lowercase and underscores only.</p>
+
+            <label style={S.label}>Header (Optional)</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                {['NONE', 'TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT'].map(type => (
+                    <button 
+                        key={type}
+                        onClick={() => { setHeaderType(type); setMediaFile(null); setMediaPreview(null); }}
+                        style={{ 
+                            padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #e2e8f0',
+                            background: headerType === type ? '#ebf5ff' : '#fff',
+                            color: headerType === type ? '#2563eb' : '#64748b',
+                            borderColor: headerType === type ? '#bfdbfe' : '#e2e8f0'
+                        }}>
+                        {type}
+                    </button>
+                ))}
             </div>
 
-            {/* Footer */}
-            <div>
-              <label style={S.label}>Footer (Optional)</label>
-              <input style={{ ...S.input, marginBottom:0 }} value={form.footer}
-                onChange={e => setForm(f => ({ ...f, footer: e.target.value }))}
-                placeholder="e.g. FreshMeat Shop | Order now 🛒" />
-            </div>
-          </div>
-
-          {/* Image card */}
-          <div style={{ ...S.card, padding: isMobile ? '16px 16px' : '22px 24px' }}>
-            <div style={{ ...S.title, justifyContent:'space-between' }}>
-              <span style={{ display:'flex', alignItems:'center', gap:8 }}><Img size={16} color="#2563eb" />Attach Image</span>
-              {image && <button onClick={() => { setImage(null); setPreview(null); }}
-                style={{ display:'flex', alignItems:'center', gap:4, fontSize:11.5, fontWeight:600, color:'#dc2626', background:'#fef2f2', border:'none', borderRadius:7, padding:'4px 10px', cursor:'pointer' }}>
-                <X size={12} /> Remove
-              </button>}
-            </div>
-            {preview ? (
-              <div style={{ borderRadius:10, overflow:'hidden', border:'1px solid #e2e8f0' }}>
-                <img src={preview} alt="" style={{ width:'100%', maxHeight:200, objectFit:'cover', display:'block' }} />
-              </div>
-            ) : (
-              <div
-                onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={e => { e.preventDefault(); setDragging(false); handleImage(e.dataTransfer.files[0]); }}
-                onClick={() => fileRef.current?.click()}
-                style={{ border:`2px dashed ${dragging?'#c8102e':'#cbd5e1'}`, borderRadius:12, padding: isMobile ? '32px 12px' : '32px 24px', textAlign:'center', cursor:'pointer', background: dragging ? '#fff5f5' : '#f8fafc' }}
-              >
-                <Upload size={26} color={dragging?'#c8102e':'#94a3b8'} style={{ margin:'0 auto 8px', display:'block' }} />
-                <div style={{ fontSize:13, color:'#64748b' }}>Drag & drop or <span style={{ color:'#c8102e', textDecoration:'underline' }}>click to upload</span></div>
-                <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>PNG, JPG, WEBP up to 5MB</div>
-              </div>
+            {headerType === 'TEXT' && (
+                <input style={S.input} placeholder="Short heading text (Max 60 chars)" maxLength={60} value={headerText} onChange={e => setHeaderText(e.target.value)} />
             )}
-            <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => handleImage(e.target.files[0])} />
-          </div>
 
-          {/* Recipients card */}
-          <div style={{ ...S.card, padding: isMobile ? '16px 16px' : '22px 24px' }}>
-            <div style={{ ...S.title, justifyContent:'space-between' }}>
-              <span style={{ display:'flex', alignItems:'center', gap:8 }}><Users size={16} color="#16a34a" />Recipients</span>
-              <span style={{ background:'#fef2f2', color:'#c8102e', fontSize:11.5, fontWeight:700, padding:'3px 10px', borderRadius:20 }}>{recipientCount} selected</span>
-            </div>
+            {['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType) && (
+                <div style={{ marginBottom: 12 }}>
+                    <input type="file" ref={fileRef} onChange={handleFileChange} style={{ display: 'none' }} accept={headerType === 'IMAGE' ? 'image/*' : headerType === 'VIDEO' ? 'video/*' : '*/*'} />
+                    <button className="btn-secondary" onClick={() => fileRef.current.click()} style={{ width: '100%', justifyContent: 'center' }}>
+                        {headerType === 'IMAGE' ? <ImageIcon size={16}/> : headerType === 'VIDEO' ? <Video size={16}/> : <FileText size={16}/>}
+                        {mediaFile ? mediaFile.name : `Select ${headerType} File for Header`}
+                    </button>
+                </div>
+            )}
 
-            {/* Radio options */}
-            <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', gap:12, marginBottom: recipientMode === 'select' ? 16 : 0 }}>
-              {[
-                { val:'all',    label:'All Contacts',    sub:`${contacts.length} opted-in` },
-                { val:'select', label:'Select Contacts', sub:'Choose specific' },
-              ].map(opt => (
-                <label key={opt.val} onClick={() => setRecipientMode(opt.val)} style={{
-                  flex:1, display:'flex', alignItems:'center', gap:12, padding:'13px 15px',
-                  border:`1.5px solid ${recipientMode===opt.val?'#c8102e':'#e2e8f0'}`,
-                  borderRadius:12, cursor:'pointer',
-                  background: recipientMode===opt.val ? '#fff5f5' : '#fafafa',
-                  boxShadow: recipientMode===opt.val ? '0 2px 10px rgba(200,16,46,0.1)' : 'none'
-                }}>
-                  {/* Radio circle */}
-                  <span style={{
-                    width:18, height:18, borderRadius:'50%', flexShrink:0,
-                    border:`2px solid ${recipientMode===opt.val?'#c8102e':'#cbd5e1'}`,
-                    background: recipientMode===opt.val ? '#c8102e' : '#fff',
-                    display:'flex', alignItems:'center', justifyContent:'center'
-                  }}>
-                    {recipientMode===opt.val && <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff', display:'block' }} />}
-                  </span>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#1e293b' }}>{opt.label}</div>
-                    <div style={{ fontSize:11, color:'#64748b' }}>{opt.sub}</div>
+            <label style={S.label}>Body Message *</label>
+            <textarea 
+              style={{ ...S.input, minHeight: 120, resize: 'vertical' }} 
+              placeholder="Enter your message body here... Use {{1}} for variables."
+              value={bodyText}
+              onChange={e => setBodyText(e.target.value)}
+            />
+
+            <label style={S.label}>Footer (Optional)</label>
+            <input style={S.input} placeholder="Short footer text, e.g. Reply STOP to opt out" maxLength={60} value={footerText} onChange={e => setFooterText(e.target.value)} />
+
+            <div style={{ borderTop: '1px solid #e2e8f0', margin: '20px 0', paddingTop: 20 }}>
+              <label style={S.label}>Buttons (Optional, Max 3)</label>
+              
+              {buttons.map((btn, i) => (
+                <div key={i} style={{ background: '#f8fafc', padding: 15, borderRadius: 10, border: '1px solid #e2e8f0', marginBottom: 12, position: 'relative' }}>
+                  <button onClick={() => removeButton(i)} style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={16} /></button>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {btn.type === 'URL' ? <LinkIcon size={14}/> : btn.type === 'PHONE_NUMBER' ? <Phone size={14}/> : <Type size={14}/>} 
+                    {btn.type === 'URL' ? 'Visit Website' : btn.type === 'PHONE_NUMBER' ? 'Call Phone Number' : btn.type === 'COPY_CODE' ? 'Copy Offer Code' : 'Custom Quick Reply'}
                   </div>
-                </label>
+                  
+                  {btn.type !== 'COPY_CODE' && (
+                      <input style={S.input} placeholder="Button Text (e.g. Buy Now)" maxLength={20} value={btn.text} onChange={e => updateButton(i, 'text', e.target.value)} />
+                  )}
+                  
+                  {btn.type === 'URL' && <input style={{ ...S.input, marginBottom: 0 }} placeholder="URL (e.g. https://zest-eat.com)" value={btn.url} onChange={e => updateButton(i, 'url', e.target.value)} />}
+                  {btn.type === 'PHONE_NUMBER' && <input style={{ ...S.input, marginBottom: 0 }} placeholder="Phone Number (e.g. +919876543210)" value={btn.phone_number} onChange={e => updateButton(i, 'phone_number', e.target.value)} />}
+                  {btn.type === 'COPY_CODE' && <input style={{ ...S.input, marginBottom: 0 }} placeholder="Offer Code (e.g. SALE20)" value={btn.example} onChange={e => updateButton(i, 'example', e.target.value)} />}
+                </div>
               ))}
+
+              {buttons.length < 3 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+                  <button className="btn-secondary" onClick={() => addButton('QUICK_REPLY')}><Plus size={14}/> Custom Quick Reply</button>
+                  <button className="btn-secondary" onClick={() => addButton('URL')}><Plus size={14}/> Visit Website</button>
+                  <button className="btn-secondary" onClick={() => addButton('PHONE_NUMBER')}><Plus size={14}/> Call Phone Number</button>
+                  <button className="btn-secondary" onClick={() => addButton('COPY_CODE')}><Plus size={14}/> Copy Offer Code</button>
+                </div>
+              )}
             </div>
 
-            {/* Contact picker */}
-            {recipientMode === 'select' && (
-              <div style={{ marginTop: 12, animation:'fadeIn .2s ease' }}>
-                <div style={{ display:'flex', gap:10, marginBottom:10 }}>
-                  <div style={{ flex:1, display:'flex', alignItems:'center', gap:7, background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:9, padding:'8px 12px' }}>
-                    <Search size={13} color="#94a3b8" />
-                    <input placeholder="Search contacts..." value={contactSearch}
-                      onChange={e => setContactSearch(e.target.value)}
-                      style={{ border:'none', background:'transparent', outline:'none', fontSize:13, color:'#1e293b', width:'100%', fontFamily:'inherit' }} />
-                  </div>
-                  <button onClick={() => setSelected(contacts.map(c=>c.phone))} style={{ padding:'6px 12px', border:'1px solid #e2e8f0', borderRadius:8, background:'#fff', fontSize:11.5, fontWeight:700, color:'#475569', cursor:'pointer' }}>All</button>
-                  <button onClick={() => setSelected([])} style={{ padding:'6px 12px', border:'1px solid #e2e8f0', borderRadius:8, background:'#fff', fontSize:11.5, fontWeight:700, color:'#475569', cursor:'pointer' }}>None</button>
-                </div>
-                <div style={{ maxHeight:220, overflowY:'auto', border:'1px solid #e2e8f0', borderRadius:10 }}>
-                  {filtered.length === 0
-                    ? <div style={{ padding:20, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No contacts found</div>
-                    : filtered.map(c => {
-                      const isSel = selected.includes(c.phone);
-                      return (
-                        <div key={c.phone} onClick={() => toggleContact(c.phone)}
-                          style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderBottom:'1px solid #f1f5f9', cursor:'pointer', background: isSel ? '#fff5f5' : '#fff' }}>
-                          {isSel ? <CheckSquare size={14} color="#c8102e" /> : <Square size={14} color="#94a3b8" />}
-                          <div style={{ width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#c8102e,#ff5c7a)', color:'#fff', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                            {(c.name||c.phone)[0].toUpperCase()}
-                          </div>
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontSize:13, fontWeight:600, color:'#1e293b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name || 'Unknown'}</div>
-                            <div style={{ fontSize:11, color:'#94a3b8' }}>+91 {c.phone}</div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  }
-                </div>
-              </div>
-            )}
+            <button className="btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={submitMetaTemplate} disabled={loading}>
+              {loading ? 'Submitting...' : <><Send size={16}/> Submit to Meta for Approval</>}
+            </button>
           </div>
-
-          {/* Send button */}
-          <button onClick={send} disabled={sending || !form.message.trim() || recipientCount === 0}
-            style={{ width:'100%', padding:'15px 28px', background: sending ? '#94a3b8' : 'linear-gradient(135deg,#c8102e,#e8304a)', color:'#fff', border:'none', borderRadius:13, fontSize:14.5, fontWeight:700, cursor: sending?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:10, boxShadow:'0 4px 16px rgba(200,16,46,0.3)', opacity: (!form.message.trim()||recipientCount===0) ? 0.6 : 1, marginBottom: 16 }}>
-            {sending
-              ? <><span style={{ width:16,height:16,border:'2px solid rgba(255,255,255,.35)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin .7s linear infinite',display:'inline-block' }} />Sending to {recipientCount} contacts…</>
-              : <><Send size={16} />Send to {recipientCount} Contact{recipientCount!==1?'s':''}</>
-            }
-          </button>
         </div>
 
-        {/* ── RIGHT: Preview + History ───────────────────── */}
-        <div>
+        {/* PREVIEW AND LIST PANEL */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          
+          {/* LIVE PREVIEW */}
+          <div style={S.card}>
+             <div style={S.title}><Eye size={18} color="#059669" /> Message Preview</div>
+             <div style={S.waBg}>
+                <div style={S.waBubble}>
+                   <div style={S.waContent}>
+                      
+                      {/* Media Header Preview */}
+                      {headerType === 'IMAGE' && mediaPreview && (
+                         <img src={mediaPreview} alt="Header" style={S.waMedia} />
+                      )}
+                      {headerType === 'IMAGE' && !mediaPreview && (
+                         <div style={{...S.waMedia, height: 120}}><ImageIcon size={32} opacity={0.5}/></div>
+                      )}
+                      
+                      {headerType === 'VIDEO' && (
+                         <div style={{...S.waMedia, height: 120, background: '#111b21'}}><Video size={32} color="#fff" opacity={0.8}/></div>
+                      )}
 
-          {/* WA Preview */}
-          <div style={{ ...S.card, padding: isMobile ? '16px 16px' : '22px 24px' }}>
-            <div style={S.title}><Eye size={16} color="#16a34a" />Live Preview</div>
-            <div style={{ borderRadius:14, overflow:'hidden', border:'1px solid #e2e8f0', boxShadow:'0 4px 16px rgba(0,0,0,.06)' }}>
-              {/* WA header */}
-              <div style={{ background:'#075e54', padding:'12px 16px', display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ width:34,height:34,borderRadius:'50%',background:'#25d366',color:'#fff',fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center' }}>FM</div>
-                <div>
-                  <div style={{ color:'#fff', fontSize:13, fontWeight:600 }}>FreshMeat Shop</div>
-                  <div style={{ color:'rgba(255,255,255,.7)', fontSize:11 }}>online</div>
-                </div>
-              </div>
-              {/* WA body */}
-              <div style={{ background:'#ece5dd', padding:'14px 12px', minHeight:120 }}>
-                {preview && <div style={{ borderRadius:10, overflow:'hidden', marginBottom:8 }}>
-                  <img src={preview} alt="" style={{ width:'100%', maxHeight:140, objectFit:'cover', display:'block' }} />
-                </div>}
-                <div style={{ background:'#fff', borderRadius:'0 12px 12px 12px', padding:'12px 14px', maxWidth:'90%', boxShadow:'0 1px 3px rgba(0,0,0,.1)' }}>
-                  {form.title && <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:5, wordBreak: 'break-word', overflowWrap: 'break-word' }}>{PREVIEW_REPLACE(form.title)}</div>}
-                  <div style={{ fontSize:12.5, color:'#334155', lineHeight:1.55, whiteSpace:'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                    {form.message ? PREVIEW_REPLACE(form.message) : <span style={{ color:'#94a3b8', fontStyle:'italic' }}>Your message will appear here…</span>}
-                  </div>
-                  {form.footer && <div style={{ fontSize:11.5, color:'#64748b', fontStyle:'italic', marginTop:6, borderTop:'1px solid #f1f5f9', paddingTop:6, wordBreak: 'break-word', overflowWrap: 'break-word' }}>{PREVIEW_REPLACE(form.footer)}</div>}
-                  <div style={{ fontSize:12, color:'#1e293b', background:'#f8fafc', borderRadius:8, padding:'8px 10px', marginTop:8, lineHeight:1.7, borderLeft:'3px solid #25d366' }}>
-                    🛒 <strong>Are you interested?</strong><br />
-                    1️⃣ Yes, Interested!<br />
-                    2️⃣ No, Not Interested
-                  </div>
-                  <div style={{ fontSize:10.5, color:'#94a3b8', textAlign:'right', marginTop:6 }}>
-                    {new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})} ✓✓
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+                      {headerType === 'DOCUMENT' && (
+                         <div style={{...S.waMedia, height: 60, borderRadius: 4}}><FileText size={24} opacity={0.6}/></div>
+                      )}
 
-          {/* Campaign History */}
-          <div style={{ ...S.card, padding: isMobile ? '16px 16px' : '22px 24px' }}>
-            <div style={{ ...S.title, justifyContent:'space-between' }}>
-              <span style={{ display:'flex', alignItems:'center', gap:8 }}><Clock size={16} color="#d97706" />Campaign History</span>
-              <span style={{ background:'#f1f5f9', color:'#475569', fontSize:11.5, fontWeight:700, padding:'3px 10px', borderRadius:20 }}>{templates.length}</span>
-            </div>
+                      {/* Text Header Preview */}
+                      {headerType === 'TEXT' && headerText && (
+                         <div style={S.waHeader}>{headerText}</div>
+                      )}
+                      
+                      <div style={S.waBody}>{bodyText || <span style={{color: '#94a3b8', fontStyle: 'italic'}}>Body text will appear here...</span>}</div>
+                      
+                      {footerText && <div style={S.waFooter}>{footerText}</div>}
+                   </div>
 
-            {templates.length === 0 ? (
-              <p style={{ textAlign:'center', color:'#aaa', padding:20, fontSize:13 }}>No campaigns yet.</p>
-            ) : (
-              <div style={{ maxHeight:500, overflowY:'auto' }}>
-                {templates.map((t, i) => {
-                  const id = String(t._id || i);
-                  const isOpen = expandedId === id;
-                  const st = t.status || 'draft';
-                  const stColor = st==='completed'?'#15803d':st==='sending'?'#c2410c':st==='failed'?'#dc2626':'#64748b';
-                  const stBg   = st==='completed'?'#f0fdf4':st==='sending'?'#fff7ed':st==='failed'?'#fef2f2':'#f8fafc';
-                  try {
-                    return (
-                      <div key={id} style={{ borderRadius:10, border:'1px solid #e2e8f0', background:'#fafafa', overflow:'hidden', marginBottom:8 }}>
-                        <div onClick={() => setExpandedId(isOpen ? null : id)}
-                          style={{ padding:'10px 14px', cursor:'pointer', background: isOpen?'#fff5f5':'#fff' }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
-                            <span style={{ fontWeight:700, fontSize:13, color:'#111', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                              {t.title || '(no title)'}
-                            </span>
-                            <span style={{ background:stBg, color:stColor, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, whiteSpace:'nowrap' }}>
-                              {st}
-                            </span>
-                          </div>
-                          <div style={{ display:'flex', gap: isMobile ? 6 : 12, flexWrap: 'wrap', marginTop:5, fontSize:11, color:'#666', alignItems: 'center' }}>
-                            <span>📤 {t.totalSent||0}</span>
-                            <span>✅ {t.interested||0}</span>
-                            <span>❌ {t.notInterested||0}</span>
-                            <span>🛒 {t.ordersGenerated||0}</span>
-                            <span style={{ marginLeft: isMobile ? '0' : 'auto', color:'#aaa' }}>
-                              {t.sentAt ? new Date(t.sentAt).toLocaleDateString('en-IN') : ''}
-                            </span>
-                          </div>
-                        </div>
-                        {isOpen && (
-                          <div style={{ borderTop:'1px solid #eee', padding:'10px 14px', background:'#fff' }}>
-                            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
-                              {[
-                                {l:'Sent',      v:t.totalSent||0,       bg:'#eff6ff',c:'#2563eb'},
-                                {l:'Interested',v:t.interested||0,      bg:'#dcfce7',c:'#16a34a'},
-                                {l:'Not Int.',  v:t.notInterested||0,   bg:'#fef2f2',c:'#dc2626'},
-                                {l:'Orders',    v:t.ordersGenerated||0, bg:'#fef3c7',c:'#d97706'},
-                              ].map(s=>(
-                                <div key={s.l} style={{flex:1,minWidth: isMobile ? 48 : 55,background:s.bg,color:s.c,borderRadius:8,padding:'8px 4px',textAlign:'center'}}>
-                                  <div style={{fontSize:18,fontWeight:800}}>{s.v}</div>
-                                  <div style={{fontSize:10,opacity:.8}}>{s.l}</div>
-                                </div>
-                              ))}
-                            </div>
-                            {t.message && (
-                              <div style={{fontSize:11.5,color:'#555',fontStyle:'italic',borderLeft:'3px solid #c8102e',paddingLeft:8}}>
-                                "{String(t.message).slice(0,100)}…"
-                              </div>
-                            )}
-                          </div>
-                        )}
+                   {/* Buttons Preview */}
+                   {buttons.map((b, i) => (
+                      <div key={i} style={S.waBtn}>
+                         {b.type === 'URL' ? <LinkIcon size={14}/> : b.type === 'PHONE_NUMBER' ? <Phone size={14}/> : <Type size={14}/>}
+                         {b.type === 'COPY_CODE' ? 'Copy Offer Code' : (b.text || 'Button')}
                       </div>
-                    );
-                  } catch(err) {
-                    return <div key={i} style={{padding:8,color:'red',fontSize:11}}>Item {i} error: {String(err)}</div>;
-                  }
-                })}
+                   ))}
+                </div>
+             </div>
+          </div>
+
+          <div style={S.card}>
+            <div style={S.title}>Your Templates</div>
+            {templates.length === 0 ? (
+              <p style={{ color: '#aaa', fontSize: 13 }}>No templates created yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 400, overflowY: 'auto' }}>
+                {templates.map(t => (
+                  <div key={t._id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 15, background: '#fafafa' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <strong style={{ fontSize: 14, color: '#1e293b' }}>{t.name || t.title}</strong>
+                      <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 12, fontWeight: 700, background: t.metaStatus === 'APPROVED' ? '#dcfce7' : t.metaStatus === 'REJECTED' ? '#fee2e2' : '#fef3c7', color: t.metaStatus === 'APPROVED' ? '#166534' : t.metaStatus === 'REJECTED' ? '#991b1b' : '#92400e' }}>
+                        {t.metaStatus || 'DRAFT'}
+                      </span>
+                    </div>
+                    {t.metaTemplateId && (
+                      <button onClick={() => checkStatus(t._id)} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: 11, fontWeight: 600, padding: 0, marginTop: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        Check Approval Status
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
+
       </div>
     </div>
   );

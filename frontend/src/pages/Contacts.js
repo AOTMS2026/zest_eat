@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { Upload, UserPlus, Trash2, FileSpreadsheet, Phone, CheckCircle2, Save, X, Users } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
 
 const S = {
   page: { animation:'fadeIn .35s ease' },
@@ -26,6 +27,7 @@ export default function Contacts() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const fileRef = useRef();
 
   useEffect(() => { loadContacts(); }, []);
@@ -91,10 +93,16 @@ export default function Contacts() {
     setSaving(false);
   };
 
-  const deleteContact = async (id) => {
-    if (!window.confirm('Delete this contact?')) return;
-    try { await api.delete(`/api/contacts/${id}`); toast.success('Deleted'); loadContacts(); }
-    catch { toast.error('Delete failed'); }
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try { 
+      await api.delete(`/api/contacts/${deleteTarget._id}`); 
+      toast.success('Contact deleted successfully'); 
+      loadContacts(); 
+    } catch { 
+      toast.error('Delete failed'); 
+    }
+    setDeleteTarget(null);
   };
 
   const allPending = [...new Set([...extracted,...manualList])];
@@ -190,13 +198,25 @@ export default function Contacts() {
                   <td data-label="Templates" style={{...S.td,textAlign: isMobile ? 'right' : 'center'}}>{c.templatesSent||0}</td>
                   <td data-label="Orders" style={{...S.td,textAlign: isMobile ? 'right' : 'center'}}>{c.ordersPlaced||0}</td>
                   <td data-label="Added" style={{...S.td,fontSize:11,color:'#888'}}>{new Date(c.createdAt).toLocaleDateString('en-IN')}</td>
-                  <td style={{...S.td, textAlign: isMobile ? 'right' : 'left'}}><button onClick={()=>deleteContact(c._id)} style={{background:'none',border:'none',cursor:'pointer',color:'#E57373',padding:4}}><Trash2 size={14}/></button></td>
+                  <td style={{...S.td, textAlign: isMobile ? 'right' : 'left'}}><button onClick={()=>setDeleteTarget(c)} style={{background:'none',border:'none',cursor:'pointer',color:'#E57373',padding:4}}><Trash2 size={14}/></button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Custom Styled Confirm Modal for Deletion */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Contact"
+        message={`Are you sure you want to delete ${deleteTarget?.name || deleteTarget?.phone || 'this contact'}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDanger={true}
+      />
     </div>
   );
 }

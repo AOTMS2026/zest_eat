@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { Send, Eye, Link as LinkIcon, Phone, Image as ImageIcon, Video, FileText, Type } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
 
 /* ── User-Provided Styled Action Button (Navy + Yellow Hover) ── */
 const StyledWrapper = styled.div`
@@ -111,6 +112,14 @@ export default function Campaigns() {
   const [sendPhones, setSendPhones] = useState([]); 
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
+  // Custom Confirm Modal State (replaces browser "localhost says" alert)
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    templateId: null,
+    title: '',
+    message: '',
+  });
+
   useEffect(() => { 
     loadTemplates(); 
     loadContacts();
@@ -145,43 +154,38 @@ export default function Campaigns() {
     }
   };
 
-  const sendMetaTemplate = async (templateId, isTest = false) => {
+  const handleInitiateBroadcast = (templateId) => {
     const template = templates.find(t => t._id === templateId);
     if (!template) return toast.error('Template not found');
 
-    if (!isTest && sendMode === 'SELECT' && sendPhones.length === 0) {
+    if (sendMode === 'SELECT' && sendPhones.length === 0) {
       return toast.error('Please select at least one contact.');
     }
-    
-    const recipientsCount = isTest ? 1 : (sendMode === 'ALL' ? contacts.filter(c => !c.optedOut).length : sendPhones.length);
-    
-    const confirmMessage = `Are you sure you want to send this template?\n\n` +
-      `Template Name: ${template.name}\n` +
-      `Meta Template ID: ${template.metaTemplateId || 'N/A'}\n` +
-      `Category: ${template.category}\n` +
-      `Language: ${template.language}\n` +
-      `Recipients: ${recipientsCount} contact(s)\n\n` +
-      (isTest ? `(TEST MODE: Sending to ONE contact only)` : `(BULK SEND: Sending to ${recipientsCount} contacts)`);
 
-    if (!window.confirm(confirmMessage)) return;
+    const recipientsCount = sendMode === 'ALL' ? contacts.filter(c => !c.optedOut).length : sendPhones.length;
+
+    setConfirmModal({
+      isOpen: true,
+      templateId,
+      title: 'Send Bulk Message',
+      message: `Ready to send "${template.name || template.title}" to ${recipientsCount} recipient(s)? This will broadcast to your audience.`,
+    });
+  };
+
+  const executeBroadcast = async () => {
+    if (!confirmModal.templateId) return;
     setIsBroadcasting(true);
     
     try {
-      let phonesPayload = '';
-      if (isTest) {
-         phonesPayload = (sendPhones.length > 0) ? sendPhones[0] : (contacts.find(c => !c.optedOut)?.phone || '');
-         if (!phonesPayload) throw new Error('No contacts available for testing');
-      } else {
-         phonesPayload = sendMode === 'ALL' ? '' : sendPhones.join(',');
-      }
+      const phonesPayload = sendMode === 'ALL' ? '' : sendPhones.join(',');
       
       const { data } = await api.post('/api/template/send-meta', {
-        templateId,
+        templateId: confirmModal.templateId,
         phones: phonesPayload
       });
       
       if (data.success) {
-        toast.success(`Broadcast started to ${data.total} contacts!`);
+        toast.success(`Broadcast started to ${data.total} contacts! 🚀`);
         setSendingTemplateId(null);
         setSendPhones([]);
         setSendMode('ALL');
@@ -332,7 +336,7 @@ export default function Campaigns() {
                           <StyledWrapper $fullWidth style={{ flex: 1 }}>
                             <button 
                               type="button"
-                              onClick={() => sendMetaTemplate(t._id, false)}
+                              onClick={() => handleInitiateBroadcast(t._id)}
                               disabled={isBroadcasting}
                             >
                               <span>
@@ -433,6 +437,17 @@ export default function Campaigns() {
         </div>
 
       </div>
+
+      {/* Custom Styled Confirm Modal (Replacing "localhost says") */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={executeBroadcast}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Send"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

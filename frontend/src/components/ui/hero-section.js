@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from "react";
+import OptionWheel from "./OptionWheel";
+import { Facebook, Instagram, Twitter, MessageCircle, Mail } from "lucide-react";
  
 const colors = {
   50: "#f8f7f5",
@@ -166,6 +168,29 @@ export function HeroSection({ isDarkMode = true }) {
       <div className="floating-element" style={{ top: "40%", left: "10%", animationDelay: "6s" }}></div>
       <div className="floating-element" style={{ top: "75%", left: "90%", animationDelay: "6.5s" }}></div>
  
+      {/* OptionWheel on the left */}
+      <div className="absolute top-1/2 left-0 -translate-y-1/2 h-[500px] w-64 z-20 hidden md:block" style={{ animation: "slideIn 1s ease-out forwards", animationDelay: "2s", opacity: 0 }}>
+        <OptionWheel
+          items={['WhatsApp', 'Facebook', 'Instagram', 'SMS', 'Email', 'Push']}
+          defaultSelected={0}
+          textColor={isDarkMode ? "#544237" : "#c8b4a0"}
+          activeColor={isDarkMode ? "#c8b4a0" : "#6b5545"}
+          side="left"
+          fontSize={2}
+          spacing={1.8}
+          inset={40}
+        />
+      </div>
+
+      {/* Social Icons on the right */}
+      <div className="absolute top-1/2 right-8 -translate-y-1/2 flex flex-col gap-6 z-20 hidden md:flex" style={{ animation: "fadeIn 1s ease-out forwards", animationDelay: "2.5s", opacity: 0 }}>
+        <a href="#" className={`hover:scale-110 transition-transform ${isDarkMode ? 'text-[#c8b4a0] hover:text-[#fff]' : 'text-[#6b5545] hover:text-[#000]'}`}><MessageCircle size={24} /></a>
+        <a href="#" className={`hover:scale-110 transition-transform ${isDarkMode ? 'text-[#c8b4a0] hover:text-[#fff]' : 'text-[#6b5545] hover:text-[#000]'}`}><Facebook size={24} /></a>
+        <a href="#" className={`hover:scale-110 transition-transform ${isDarkMode ? 'text-[#c8b4a0] hover:text-[#fff]' : 'text-[#6b5545] hover:text-[#000]'}`}><Instagram size={24} /></a>
+        <a href="#" className={`hover:scale-110 transition-transform ${isDarkMode ? 'text-[#c8b4a0] hover:text-[#fff]' : 'text-[#6b5545] hover:text-[#000]'}`}><Twitter size={24} /></a>
+        <a href="#" className={`hover:scale-110 transition-transform ${isDarkMode ? 'text-[#c8b4a0] hover:text-[#fff]' : 'text-[#6b5545] hover:text-[#000]'}`}><Mail size={24} /></a>
+      </div>
+
       <div className="relative z-10 min-h-[90vh] flex flex-col justify-center items-center px-8 py-12 md:px-16 md:py-20 mt-16">
         {/* Top tagline */}
         <div className="text-center">

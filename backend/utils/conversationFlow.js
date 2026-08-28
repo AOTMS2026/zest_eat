@@ -244,7 +244,7 @@ const startMetaTemplate = async (phone, template) => {
     if (!template.imageUrl) {
       // If this is an old template that didn't save imageUrl, fallback to a placeholder so it doesn't crash Meta
       console.log(`⚠️ Template '${template.name}' requires a media header but imageUrl is missing. Using fallback image.`);
-      publicUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/No_image_available.svg/300px-No_image_available.svg.png'; // safe standard PNG
+      publicUrl = 'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png'; // Highly reliable image host
     } else {
       // Fix the campaigns path just in case it was saved incorrectly
       let rawPath = template.imageUrl;

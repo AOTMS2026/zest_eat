@@ -41,9 +41,8 @@ export default function Template() {
   const [footerText, setFooterText] = useState('');
   const [buttons, setButtons] = useState([]);
   
-  // Import State
-  const [importTemplateId, setImportTemplateId] = useState('');
-  const [importImageUrl, setImportImageUrl] = useState('');
+  // Active Preview State
+  const [activePreviewId, setActivePreviewId] = useState(null);
   
   // Sending State
   const [sendingTemplateId, setSendingTemplateId] = useState(null);
@@ -82,29 +81,6 @@ export default function Template() {
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed to update status');
     }
-  };
-
-  const importMetaTemplate = async () => {
-    if (!importTemplateId) return toast.error('Please provide a Meta Template ID');
-    
-    setLoading(true);
-    try {
-      const { data } = await api.post('/api/template/import-meta', {
-        metaTemplateId: importTemplateId,
-        imageUrl: importImageUrl
-      });
-      if (data.success) {
-        toast.success('Template imported successfully!');
-        setImportTemplateId('');
-        setImportImageUrl('');
-        loadTemplates();
-      } else {
-        toast.error(data.message);
-      }
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Failed to import template');
-    }
-    setLoading(false);
   };
 
   const sendMetaTemplate = async (templateId, isTest = false) => {
@@ -261,9 +237,49 @@ export default function Template() {
     setLoading(false);
   };
 
+  // Determine what to show in the preview
+  const previewData = activePreviewId ? templates.find(t => t._id === activePreviewId) : null;
+  
+  let pHeaderType = headerType;
+  let pHeaderText = headerText;
+  let pMediaUrl = mediaPreview;
+  let pBodyText = bodyText;
+  let pFooterText = footerText;
+  let pButtons = buttons;
+
+  if (previewData) {
+    const headerComp = previewData.components?.find(c => c.type === 'HEADER');
+    if (headerComp) {
+      pHeaderType = headerComp.format;
+      pHeaderText = headerComp.text || '';
+      if (['IMAGE', 'VIDEO'].includes(pHeaderType)) {
+        pMediaUrl = previewData.imageUrl;
+        if (pMediaUrl && !pMediaUrl.includes('/campaigns/') && pMediaUrl.startsWith('/uploads/')) {
+           pMediaUrl = pMediaUrl.replace('/uploads/', '/uploads/campaigns/');
+        }
+        if (pMediaUrl) pMediaUrl = `https://zest-eat.onrender.com${pMediaUrl}`;
+      }
+    } else {
+      pHeaderType = 'NONE';
+    }
+    
+    pBodyText = previewData.components?.find(c => c.type === 'BODY')?.text || '';
+    pFooterText = previewData.components?.find(c => c.type === 'FOOTER')?.text || '';
+    
+    const btnComp = previewData.components?.find(c => c.type === 'BUTTONS');
+    pButtons = btnComp ? btnComp.buttons : [];
+  }
+
   return (
     <div style={S.page}>
-      <h2 style={{ marginBottom: 20, fontSize: 24, fontWeight: 800, color: '#1e293b' }}>Meta Template Manager</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1e293b' }}>Meta Template Manager</h2>
+        {activePreviewId && (
+          <button className="btn-secondary" onClick={() => setActivePreviewId(null)}>
+            Back to Builder Preview
+          </button>
+        )}
+      </div>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24 }}>
         
@@ -378,39 +394,42 @@ export default function Template() {
           
           {/* LIVE PREVIEW */}
           <div style={S.card}>
-             <div style={S.title}><Eye size={18} color="#059669" /> Message Preview</div>
+             <div style={S.title}>
+                <Eye size={18} color="#059669" /> 
+                {activePreviewId ? `Previewing: ${previewData?.name}` : 'Builder Preview'}
+             </div>
              <div style={S.waBg}>
                 <div style={S.waBubble}>
                    <div style={S.waContent}>
                       
                       {/* Media Header Preview */}
-                      {headerType === 'IMAGE' && mediaPreview && (
-                         <img src={mediaPreview} alt="Header" style={S.waMedia} />
+                      {pHeaderType === 'IMAGE' && pMediaUrl && (
+                         <img src={pMediaUrl} alt="Header" style={S.waMedia} />
                       )}
-                      {headerType === 'IMAGE' && !mediaPreview && (
+                      {pHeaderType === 'IMAGE' && !pMediaUrl && (
                          <div style={{...S.waMedia, height: 120}}><ImageIcon size={32} opacity={0.5}/></div>
                       )}
                       
-                      {headerType === 'VIDEO' && (
+                      {pHeaderType === 'VIDEO' && (
                          <div style={{...S.waMedia, height: 120, background: '#111b21'}}><Video size={32} color="#fff" opacity={0.8}/></div>
                       )}
 
-                      {headerType === 'DOCUMENT' && (
+                      {pHeaderType === 'DOCUMENT' && (
                          <div style={{...S.waMedia, height: 60, borderRadius: 4}}><FileText size={24} opacity={0.6}/></div>
                       )}
 
                       {/* Text Header Preview */}
-                      {headerType === 'TEXT' && headerText && (
-                         <div style={S.waHeader}>{headerText}</div>
+                      {pHeaderType === 'TEXT' && pHeaderText && (
+                         <div style={S.waHeader}>{pHeaderText}</div>
                       )}
                       
-                      <div style={S.waBody}>{bodyText || <span style={{color: '#94a3b8', fontStyle: 'italic'}}>Body text will appear here...</span>}</div>
+                      <div style={S.waBody}>{pBodyText || <span style={{color: '#94a3b8', fontStyle: 'italic'}}>Body text will appear here...</span>}</div>
                       
-                      {footerText && <div style={S.waFooter}>{footerText}</div>}
+                      {pFooterText && <div style={S.waFooter}>{pFooterText}</div>}
                    </div>
 
                    {/* Buttons Preview */}
-                   {buttons.map((b, i) => (
+                   {pButtons.map((b, i) => (
                       <div key={i} style={S.waBtn}>
                          {b.type === 'URL' ? <LinkIcon size={14}/> : b.type === 'PHONE_NUMBER' ? <Phone size={14}/> : <Type size={14}/>}
                          {b.type === 'COPY_CODE' ? 'Copy Offer Code' : (b.text || 'Button')}
@@ -421,38 +440,17 @@ export default function Template() {
           </div>
 
           <div style={S.card}>
-            <div style={S.title}><LinkIcon size={18} color="#8b5cf6" /> Import Template from Meta</div>
-            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>Paste a Meta Template ID to sync it directly from Facebook Business Manager.</p>
-            <div style={{ display: 'flex', gap: 10, flexDirection: 'column' }}>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <input 
-                  style={{ ...S.input, marginBottom: 0, flex: 2 }} 
-                  placeholder="Meta Template ID (e.g. 931585889990523)" 
-                  value={importTemplateId} 
-                  onChange={e => setImportTemplateId(e.target.value)} 
-                />
-                <button className="btn-secondary" style={{ flex: 1, padding: '11px 16px', background: '#f3e8ff', color: '#6d28d9', borderColor: '#d8b4fe' }} onClick={importMetaTemplate} disabled={loading}>
-                  {loading ? 'Importing...' : 'Sync Template'}
-                </button>
-              </div>
-              <input 
-                  style={{ ...S.input, marginBottom: 0 }} 
-                  placeholder="Optional: Image/Media URL (if this template requires a media header)" 
-                  value={importImageUrl} 
-                  onChange={e => setImportImageUrl(e.target.value)} 
-              />
-            </div>
-            <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 8 }}>The Meta Template ID will be used as the absolute source of truth.</p>
-          </div>
-
-          <div style={S.card}>
             <div style={S.title}>Your Templates</div>
             {templates.length === 0 ? (
               <p style={{ color: '#aaa', fontSize: 13 }}>No templates created yet.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 400, overflowY: 'auto' }}>
                 {templates.map(t => (
-                  <div key={t._id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 15, background: '#fafafa' }}>
+                  <div 
+                    key={t._id} 
+                    style={{ border: activePreviewId === t._id ? '2px solid #059669' : '1px solid #e2e8f0', borderRadius: 10, padding: 15, background: activePreviewId === t._id ? '#ecfdf5' : '#fafafa', cursor: 'pointer', transition: 'all 0.2s' }}
+                    onClick={() => setActivePreviewId(t._id)}
+                  >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                       <div>
                         <strong style={{ fontSize: 14, color: '#1e293b', display: 'block' }}>{t.name || t.title}</strong>

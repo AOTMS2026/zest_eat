@@ -1,7 +1,86 @@
 import React, { useState, useEffect } from 'react';
+import styled from 'styled-components';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { Send, Eye, Link as LinkIcon, Phone, Image as ImageIcon, Video, FileText, Type } from 'lucide-react';
+
+/* ── User-Provided Styled Action Button (Navy + Yellow Hover) ── */
+const StyledWrapper = styled.div`
+  display: inline-block;
+  width: ${props => props.$fullWidth ? '100%' : 'auto'};
+
+  button {
+    width: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 6px;
+    background: #183153;
+    font-family: "Montserrat", -apple-system, BlinkMacSystemFont, sans-serif;
+    box-shadow: 0px 4px 16px 0px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  button:after {
+    content: " ";
+    width: 0%;
+    height: 100%;
+    background: #ffd401;
+    position: absolute;
+    transition: all 0.4s ease-in-out;
+    right: 0;
+  }
+
+  button:hover:not(:disabled)::after {
+    right: auto;
+    left: 0;
+    width: 100%;
+  }
+
+  button span {
+    text-align: center;
+    text-decoration: none;
+    width: 100%;
+    padding: 12px 20px;
+    color: #fff;
+    font-size: 0.85em;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    z-index: 20;
+    transition: all 0.3s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  button:hover:not(:disabled) span {
+    color: #183153;
+    animation: scaleUp 0.3s ease-in-out;
+  }
+
+  @keyframes scaleUp {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(0.95);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+`;
 
 const S = {
   page:  { animation: 'fadeIn .35s ease' },
@@ -191,7 +270,25 @@ export default function Campaigns() {
                         </button>
                       )}
                       {t.metaStatus === 'APPROVED' && sendingTemplateId !== t._id && (
-                        <button onClick={(e) => { e.stopPropagation(); setActivePreviewId(t._id); setSendingTemplateId(t._id); }} style={{ background: 'none', border: 'none', color: '#059669', fontSize: 11, fontWeight: 600, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setActivePreviewId(t._id); setSendingTemplateId(t._id); }} 
+                          style={{ 
+                            background: '#0f172a', 
+                            border: 'none', 
+                            color: '#ffffff', 
+                            fontSize: 11, 
+                            fontWeight: 700, 
+                            padding: '5px 12px', 
+                            borderRadius: 6, 
+                            cursor: 'pointer', 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: 6,
+                            transition: 'all .2s' 
+                          }}
+                          onMouseOver={e => e.currentTarget.style.background = '#1e293b'}
+                          onMouseOut={e => e.currentTarget.style.background = '#0f172a'}
+                        >
                           <Send size={12}/> Send Broadcast
                         </button>
                       )}
@@ -231,36 +328,43 @@ export default function Campaigns() {
                           </div>
                         )}
                         
-                        <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
-                          <button 
-                            style={{ width: '100%', padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
-                            onClick={() => sendMetaTemplate(t._id, true)}
-                            disabled={isBroadcasting}
-                            onMouseOver={e => e.currentTarget.style.background = '#2563eb'}
-                            onMouseOut={e => e.currentTarget.style.background = '#3b82f6'}
-                          >
-                            🧪 Test Send (1 Contact)
-                          </button>
-                          
-                          <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 8 }}>
+                          <StyledWrapper $fullWidth style={{ flex: 1 }}>
                             <button 
-                              style={{ flex: 1, padding: '10px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
+                              type="button"
                               onClick={() => sendMetaTemplate(t._id, false)}
                               disabled={isBroadcasting}
-                              onMouseOver={e => e.currentTarget.style.background = '#047857'}
-                              onMouseOut={e => e.currentTarget.style.background = '#059669'}
                             >
-                              🚀 {isBroadcasting ? 'Sending...' : sendMode === 'ALL' ? `Bulk Send to All (${contacts.length})` : `Bulk Send to ${sendPhones.length}`}
+                              <span>
+                                <Send size={15} />
+                                {isBroadcasting 
+                                  ? 'SENDING...' 
+                                  : sendMode === 'ALL' 
+                                  ? `BULK SEND MESSAGE (${contacts.length})` 
+                                  : `BULK SEND MESSAGE (${sendPhones.length})`}
+                              </span>
                             </button>
-                            <button 
-                              style={{ padding: '10px 16px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
-                              onClick={() => { setSendingTemplateId(null); setSendMode('ALL'); setSendPhones([]); }}
-                              onMouseOver={e => e.currentTarget.style.background = '#e2e8f0'}
-                              onMouseOut={e => e.currentTarget.style.background = '#f1f5f9'}
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                          </StyledWrapper>
+
+                          <button 
+                            type="button"
+                            style={{ 
+                              padding: '12px 20px', 
+                              background: '#ffffff', 
+                              color: '#475569', 
+                              border: '1px solid #e2e8f0', 
+                              borderRadius: 6, 
+                              fontSize: 13, 
+                              fontWeight: 700, 
+                              cursor: 'pointer', 
+                              transition: 'all .2s' 
+                            }}
+                            onClick={() => { setSendingTemplateId(null); setSendMode('ALL'); setSendPhones([]); }}
+                            onMouseOver={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     )}

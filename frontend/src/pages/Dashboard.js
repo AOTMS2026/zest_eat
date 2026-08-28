@@ -52,38 +52,7 @@ export default function Dashboard() {
     loadData();
     pollStatus();
     const interval = setInterval(pollStatus, 5000);
-
-    const BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-    let es = null, retryDelay = 3000, retryTimer = null, destroyed = false;
-
-    const connectSSE = () => {
-      if (destroyed) return;
-      try {
-        es = new EventSource(BASE + '/api/whatsapp/status/stream');
-        es.onopen = () => { retryDelay = 3000; };
-        es.onmessage = (e) => {
-          try {
-            const d = JSON.parse(e.data);
-            setWpp(prev => ({ status:d.status, qr: d.status==='CONNECTED' ? null : (d.qr || prev.qr) }));
-            if (d.status !== 'INITIALIZING') setConnecting(false);
-          } catch {}
-        };
-        es.onerror = () => {
-          es.close(); es = null;
-          if (!destroyed) {
-            retryTimer = setTimeout(() => { retryDelay = Math.min(retryDelay*2, 30000); connectSSE(); }, retryDelay);
-          }
-        };
-      } catch {}
-    };
-    connectSSE();
-
-    return () => {
-      destroyed = true;
-      clearInterval(interval);
-      clearTimeout(retryTimer);
-      if (es) es.close();
-    };
+    return () => clearInterval(interval);
   }, [pollStatus]);
 
   const loadData = async () => {
@@ -99,21 +68,7 @@ export default function Dashboard() {
     setLoading(false);
   };
 
-  const connectWpp = async () => {
-    setConnecting(true);
-    try {
-      await api.post('/api/whatsapp/connect');
-      toast.success('Initialising… QR will appear shortly');
-    } catch { toast.error('Connection failed'); setConnecting(false); }
-  };
 
-  const disconnectWpp = async () => {
-    try {
-      await api.post('/api/whatsapp/disconnect');
-      setWpp({ status:'DISCONNECTED', qr:null });
-      toast.success('Disconnected');
-    } catch { toast.error('Failed'); }
-  };
 
   const getChartData = () => {
     const data = [];
@@ -262,38 +217,16 @@ export default function Dashboard() {
               <div className={wppBannerClass}>
                 <span className="status-indicator-light"/>
                 <span style={{ fontWeight:800, fontSize:13 }}>
-                  {{ CONNECTED:'Connected & Ready', DISCONNECTED:'Not Connected', QR_READY:'Scan QR Code Below', INITIALIZING:'Connecting...', ERROR:'Connection Error' }[wpp.status] || wpp.status}
+                  {isConnected ? 'Meta Cloud API Connected' : 'Meta API Not Configured'}
                 </span>
               </div>
-              {wpp.qr && wpp.status === 'QR_READY' && (
-                <div className="qr-box">
-                  <div style={{ fontSize:12, color:'#64748b', marginBottom:10, fontWeight:700 }}>📱 WhatsApp → Linked Devices → Link a Device</div>
-                  <div className="qr-image-wrapper"><img src={wpp.qr} alt="QR" className="qr-image"/></div>
-                  <div style={{ fontSize:11, color:'#aaa', marginTop:8 }}>QR refreshes every 20 seconds</div>
-                </div>
-              )}
-              {wpp.status === 'QR_READY' && !wpp.qr && (
-                <div style={{ textAlign:'center', padding:'20px 0', color:'#d97706', fontSize:13, fontWeight:700 }}>
-                  <Loader2 size={18} className="spin" style={{ marginRight:8 }}/>Loading QR…
-                </div>
-              )}
-              {!isConnected ? (
-                <button onClick={connectWpp} disabled={isLoading} className="btn-primary" style={{ width:'100%' }}>
-                  {isLoading ? <><Loader2 size={15} className="spin"/>Connecting…</> : <><QrCode size={15}/>Connect WhatsApp</>}
-                </button>
-              ) : (
-                <button onClick={disconnectWpp} className="btn-danger" style={{ width:'100%' }}>
-                  <Power size={15}/>Disconnect
-                </button>
-              )}
               <div className="guide-box">
-                <strong style={{ display:'block', marginBottom:6 }}>Quick Connection Guide:</strong>
-                <ol style={{ margin:0, paddingLeft:18 }}>
-                  <li>Click <strong>"Connect WhatsApp"</strong></li>
-                  <li>Scan the QR code when it loads</li>
-                  <li>Go to <strong>Linked Devices</strong> on your phone</li>
-                  <li>Scan and verify session ✅</li>
-                </ol>
+                <strong style={{ display:'block', marginBottom:6 }}>Meta Cloud API Integration:</strong>
+                <p style={{ margin:0, fontSize:12, color:'#64748b', lineHeight:1.6 }}>
+                  This application is connected to the official Meta WhatsApp Cloud API. 
+                  Connection is managed via static tokens in the backend <code>.env</code> file. 
+                  No QR code scanning is required.
+                </p>
               </div>
             </div>
           </div>

@@ -34,11 +34,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/mutton_ch
   .then(async () => {
     console.log('✅ MongoDB connected');
 
-    // Auto-init WhatsApp — delay slightly so server is fully ready first
-    const { initWhatsApp } = require('./utils/whatsappService');
-    setTimeout(() => {
-      initWhatsApp().catch(err => console.error('❌ Auto-init WhatsApp failed:', err.message));
-    }, 1000);
+    // WhatsApp initialization is no longer needed on startup because the Meta Cloud API is stateless.
 
     // Cron: run scheduled broadcasts every minute
     const { runScheduledTemplates } = require('./routes/template');

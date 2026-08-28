@@ -763,8 +763,8 @@ export function RobotHero({
       </div>
 
       <div className="absolute top-1/4 w-full flex flex-col items-center justify-center pointer-events-none z-20">
-          <h1 className="text-4xl md:text-6xl font-black text-black/80 tracking-tight text-center">
-            Zest Eat Automation
+          <h1 className="text-4xl md:text-6xl font-black text-red-600 tracking-tight text-center">
+            Zest Eat Whatsapp
           </h1>
           <p className="mt-4 text-xl md:text-2xl font-medium text-black/60 max-w-2xl text-center">
             Send, track, and scale your WhatsApp campaigns.

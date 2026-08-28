@@ -242,9 +242,9 @@ const startMetaTemplate = async (phone, template) => {
     let publicUrl = '';
     
     if (!template.imageUrl) {
-      // If this is an old template that didn't save imageUrl, fallback to a placeholder so it doesn't crash Meta
+      // If this is an old template that didn't save imageUrl, fallback to a highly reliable un-blocked image
       console.log(`⚠️ Template '${template.name}' requires a media header but imageUrl is missing. Using fallback image.`);
-      publicUrl = 'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png'; // Highly reliable image host
+      publicUrl = 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=600&auto=format&fit=crop'; // Reliable food image fallback
     } else {
       // Fix the campaigns path just in case it was saved incorrectly
       let rawPath = template.imageUrl;

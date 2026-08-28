@@ -14,15 +14,15 @@ const S = {
   },
   logo: {
     width: 56, height: 56, borderRadius: 16,
-    background: 'linear-gradient(135deg,#c8102e,#ff5c7a)',
+    background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 28, margin: '0 auto 20px', boxShadow: '0 6px 20px rgba(200,16,46,0.35)',
+    fontSize: 28, margin: '0 auto 20px', boxShadow: '0 6px 20px rgba(29, 78, 216, 0.35)',
   },
   title: { fontSize: 24, fontWeight: 800, color: '#0f172a', textAlign: 'center', marginBottom: 6 },
   sub:   { fontSize: 13, color: '#64748b', textAlign: 'center', marginBottom: 32 },
   label: { display: 'block', fontSize: 11.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 },
   input: { width: '100%', padding: '13px 16px', border: '1.5px solid #e2e8f0', borderRadius: 11, fontSize: 14, outline: 'none', fontFamily: 'inherit', background: '#fafafa', boxSizing: 'border-box', transition: 'all .2s' },
-  btn:   { width: '100%', padding: '14px', background: 'linear-gradient(135deg,#c8102e,#e8304a)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: 'pointer', marginTop: 8, transition: 'all .25s' },
+  btn:   { width: '100%', padding: '14px', background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: 'pointer', marginTop: 8, transition: 'all .25s' },
   group: { marginBottom: 20 },
 };
 
@@ -40,7 +40,7 @@ export default function Login() {
       const { data } = await api.post('/api/auth/login', { email, password });
       if (data.success) {
         localStorage.setItem('admin_token', data.token);
-        toast.success('Login successful! Welcome back, Mahesh! 👋');
+        toast.success('Login successful! Welcome to Zest Eat 👋');
         window.location.href = '/dashboard';
       }
     } catch (err) {
@@ -52,9 +52,9 @@ export default function Login() {
   return (
     <div style={S.page}>
       <div style={S.box}>
-        <div style={S.logo}>🥩</div>
-        <h1 style={S.title}>FreshMeat Admin</h1>
-        <p style={S.sub}>Sign in to your shop dashboard</p>
+        <div style={S.logo}>🚀</div>
+        <h1 style={S.title}>Zest Eat Automation</h1>
+        <p style={S.sub}>Sign in to your WhatsApp dashboard</p>
 
         <form onSubmit={handleLogin}>
           <div style={S.group}>
@@ -63,7 +63,7 @@ export default function Login() {
               style={S.input} type="email" value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="e.g. 23hp1a0548@gmail.com" autoFocus
-              onFocus={e => e.target.style.borderColor='#c8102e'}
+              onFocus={e => e.target.style.borderColor='#1d4ed8'}
               onBlur={e => e.target.style.borderColor='#e2e8f0'}
             />
           </div>
@@ -76,7 +76,7 @@ export default function Login() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                onFocus={e => e.target.style.borderColor='#c8102e'}
+                onFocus={e => e.target.style.borderColor='#1d4ed8'}
                 onBlur={e => e.target.style.borderColor='#e2e8f0'}
               />
               <button type="button" onClick={() => setShowPwd(!showPwd)}

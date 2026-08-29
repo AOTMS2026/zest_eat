@@ -7,7 +7,9 @@ const messageLogSchema = new mongoose.Schema({
   timestamp:    { type: Date, required: true },
   errorCode:    { type: Number, default: null },
   errorMessage: { type: String, default: null },
-  pricing:      { type: Object, default: null }
+  pricing:      { type: Object, default: null },
+  phoneId:      { type: String, default: null },
+  wabaId:       { type: String, default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('MessageLog', messageLogSchema);

@@ -98,6 +98,9 @@ router.post('/webhook', async (req, res) => {
         console.log(`\n📊 [WEBHOOK STATUS] ${phone} | ${status.toUpperCase()} | wamid: ${wamid}`);
         if (errorCode) console.error(`❌ Meta Error: [${errorCode}] ${errorMessage}`);
         
+        const incomingPhoneId = body.entry[0].changes[0].value.metadata?.phone_number_id || process.env.META_WA_PHONE_NUMBER_ID;
+        const incomingWabaId = body.entry[0].id || process.env.META_WA_BUSINESS_ACCOUNT_ID;
+
         try {
           await MessageLog.findOneAndUpdate(
             { wamid },
@@ -109,7 +112,9 @@ router.post('/webhook', async (req, res) => {
                 timestamp,
                 errorCode,
                 errorMessage,
-                pricing
+                pricing,
+                phoneId: incomingPhoneId,
+                wabaId: incomingWabaId
               }
             },
             { upsert: true, new: true }

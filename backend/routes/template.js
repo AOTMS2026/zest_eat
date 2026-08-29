@@ -170,12 +170,7 @@ router.get('/', async (req, res) => {
   const currentWaba = process.env.META_WA_BUSINESS_ACCOUNT_ID;
   const filter = { isScheduled: { $ne: true } };
   if (currentWaba) {
-    filter.$or = [
-      { wabaId: currentWaba },
-      { wabaId: { $exists: false } },
-      { wabaId: null },
-      { wabaId: '' }
-    ];
+    filter.wabaId = currentWaba;
   }
   const templates = await Template.find(filter).sort('-createdAt');
   res.json({ success: true, templates, currentWabaId: currentWaba });
@@ -315,6 +310,7 @@ router.post('/sync-meta', async (req, res) => {
     const currentWaba = process.env.META_WA_BUSINESS_ACCOUNT_ID;
     const metaTemplates = await fetchAllTemplatesFromMeta();
     let syncedCount = 0;
+    const activeMetaIds = metaTemplates.map(t => t.id);
 
     for (const mt of metaTemplates) {
       const existing = await Template.findOne({
@@ -326,6 +322,13 @@ router.post('/sync-meta', async (req, res) => {
       const headerComp = mt.components?.find(c => c.type === 'HEADER');
 
       if (existing) {
+        // Deduplicate: remove any other records with this name or ID
+        await Template.deleteMany({
+          _id: { $ne: existing._id },
+          $or: [{ metaTemplateId: mt.id }, { name: mt.name }]
+        });
+
+        existing.name = mt.name;
         existing.metaTemplateId = mt.id;
         existing.metaStatus = mt.status || existing.metaStatus;
         existing.components = mt.components || existing.components;
@@ -337,7 +340,7 @@ router.post('/sync-meta', async (req, res) => {
         await existing.save();
         syncedCount++;
       } else {
-        await Template.create({
+        const created = await Template.create({
           name: mt.name,
           language: mt.language,
           category: mt.category,
@@ -351,13 +354,29 @@ router.post('/sync-meta', async (req, res) => {
           imageUrl: headerComp?.example?.header_handle?.[0] || '',
           status: 'draft'
         });
+
+        await Template.deleteMany({
+          _id: { $ne: created._id },
+          $or: [{ metaTemplateId: mt.id }, { name: mt.name }]
+        });
         syncedCount++;
       }
     }
 
+    // Clean up any templates not belonging to the current Meta account
+    if (currentWaba && activeMetaIds.length > 0) {
+      await Template.deleteMany({
+        $or: [
+          { wabaId: { $ne: currentWaba } },
+          { metaTemplateId: { $nin: activeMetaIds } }
+        ],
+        isScheduled: { $ne: true }
+      });
+    }
+
     const filter = { isScheduled: { $ne: true } };
     if (currentWaba) {
-      filter.$or = [{ wabaId: currentWaba }, { wabaId: { $exists: false } }, { wabaId: null }, { wabaId: '' }];
+      filter.wabaId = currentWaba;
     }
     const all = await Template.find(filter).sort('-createdAt');
     res.json({ 
@@ -365,7 +384,7 @@ router.post('/sync-meta', async (req, res) => {
       count: syncedCount, 
       templates: all, 
       currentWabaId: currentWaba, 
-      message: `Successfully synced ${syncedCount} templates from Meta Account (${currentWaba})!` 
+      message: `Successfully synced ${all.length} templates for Meta Account (${currentWaba})!` 
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.response?.data?.error?.message || error.message });
@@ -407,8 +426,21 @@ router.get('/stats/summary', async (req, res) => {
   try {
     const MessageLog = require('../models/MessageLog');
     
+    const currentWaba = process.env.META_WA_BUSINESS_ACCOUNT_ID;
+    const currentPhone = process.env.META_WA_PHONE_NUMBER_ID;
+
+    // Filter logs for this phone or waba if specified
+    const logFilter = {};
+    if (currentPhone || currentWaba) {
+      logFilter.$or = [
+        ...(currentPhone ? [{ phoneId: currentPhone }] : []),
+        ...(currentWaba ? [{ wabaId: currentWaba }] : []),
+        { phoneId: null, wabaId: null }
+      ];
+    }
+    
     // Global counts based on latest webhook states
-    const logs = await MessageLog.find({});
+    const logs = await MessageLog.find(logFilter);
     
     let sent = 0;
     let delivered = 0;
@@ -423,10 +455,9 @@ router.get('/stats/summary', async (req, res) => {
       if (log.status === 'failed') failed++;
     });
 
-    const currentWaba = process.env.META_WA_BUSINESS_ACCOUNT_ID;
     const templateFilter = { metaStatus: 'APPROVED', isActive: true };
     if (currentWaba) {
-      templateFilter.$or = [{ wabaId: currentWaba }, { wabaId: { $exists: false } }, { wabaId: null }, { wabaId: '' }];
+      templateFilter.wabaId = currentWaba;
     }
 
     const activeTemplates = await Template.countDocuments(templateFilter);
@@ -444,7 +475,7 @@ router.get('/stats/summary', async (req, res) => {
         totalContacts,
         totalCampaigns,
         wabaId: currentWaba,
-        phoneId: process.env.META_WA_PHONE_NUMBER_ID
+        phoneId: currentPhone
       },
       chartData: logs
     });

@@ -10,24 +10,25 @@ import './Dashboard.css';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
+    const dataObj = payload[0]?.payload || {};
     return (
       <div className="custom-tooltip">
         <p className="tooltip-date">{label}</p>
         <p className="tooltip-item">
           <span>Sent:</span>
-          <span style={{ fontWeight: 700, color: '#0f172a' }}>{payload[0]?.value || 0}</span>
+          <span style={{ fontWeight: 700, color: '#0284c7' }}>{dataObj.sent ?? 0}</span>
         </p>
         <p className="tooltip-item">
           <span>Delivered:</span>
-          <span style={{ fontWeight: 700, color: '#10b981' }}>{payload[1]?.value || 0}</span>
+          <span style={{ fontWeight: 700, color: '#10b981' }}>{dataObj.delivered ?? 0}</span>
         </p>
         <p className="tooltip-item">
           <span>Read:</span>
-          <span style={{ fontWeight: 700, color: '#0284c7' }}>{payload[2]?.value || 0}</span>
+          <span style={{ fontWeight: 700, color: '#8b5cf6' }}>{dataObj.read ?? 0}</span>
         </p>
         <p className="tooltip-item">
           <span>Failed:</span>
-          <span style={{ fontWeight: 700, color: '#ef4444' }}>{payload[3]?.value || 0}</span>
+          <span style={{ fontWeight: 700, color: '#ef4444' }}>{dataObj.failed ?? 0}</span>
         </p>
       </div>
     );
@@ -86,35 +87,97 @@ export default function Dashboard() {
 
   const getChartData = () => {
     const data = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
 
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      data.push({
-        date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-        sent: 0,
-        delivered: 0,
-        read: 0,
-        failed: 0,
-        rawDate: d,
+    if (timeframe === 'Day') {
+      // 12 slots of 2-hour increments for today (00:00 to 22:00)
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      for (let h = 0; h < 24; h += 2) {
+        const slotStart = new Date(startOfToday.getTime() + h * 3600000);
+        const slotEnd = new Date(startOfToday.getTime() + (h + 2) * 3600000);
+        const hourLabel = slotStart.toLocaleTimeString('en-IN', { hour: 'numeric', hour12: true });
+        data.push({
+          date: hourLabel,
+          sent: 0,
+          delivered: 0,
+          read: 0,
+          failed: 0,
+          startTime: slotStart.getTime(),
+          endTime: slotEnd.getTime(),
+        });
+      }
+
+      chartLogs.forEach((log) => {
+        const t = new Date(log.timestamp).getTime();
+        data.forEach((slot) => {
+          if (t >= slot.startTime && t < slot.endTime) {
+            if (['sent', 'delivered', 'read'].includes(log.status)) slot.sent += 1;
+            if (['delivered', 'read'].includes(log.status)) slot.delivered += 1;
+            if (log.status === 'read') slot.read += 1;
+            if (log.status === 'failed') slot.failed += 1;
+          }
+        });
+      });
+    } else if (timeframe === 'Week') {
+      // Last 7 days
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        data.push({
+          date: d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' }),
+          sent: 0,
+          delivered: 0,
+          read: 0,
+          failed: 0,
+          rawDate: d,
+        });
+      }
+
+      chartLogs.forEach((log) => {
+        const logDate = new Date(log.timestamp);
+        logDate.setHours(0, 0, 0, 0);
+
+        data.forEach((day) => {
+          if (logDate.getTime() === day.rawDate.getTime()) {
+            if (['sent', 'delivered', 'read'].includes(log.status)) day.sent += 1;
+            if (['delivered', 'read'].includes(log.status)) day.delivered += 1;
+            if (log.status === 'read') day.read += 1;
+            if (log.status === 'failed') day.failed += 1;
+          }
+        });
+      });
+    } else {
+      // Month: Last 30 days
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        data.push({
+          date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+          sent: 0,
+          delivered: 0,
+          read: 0,
+          failed: 0,
+          rawDate: d,
+        });
+      }
+
+      chartLogs.forEach((log) => {
+        const logDate = new Date(log.timestamp);
+        logDate.setHours(0, 0, 0, 0);
+
+        data.forEach((day) => {
+          if (logDate.getTime() === day.rawDate.getTime()) {
+            if (['sent', 'delivered', 'read'].includes(log.status)) day.sent += 1;
+            if (['delivered', 'read'].includes(log.status)) day.delivered += 1;
+            if (log.status === 'read') day.read += 1;
+            if (log.status === 'failed') day.failed += 1;
+          }
+        });
       });
     }
 
-    chartLogs.forEach((log) => {
-      const logDate = new Date(log.timestamp);
-      logDate.setHours(0, 0, 0, 0);
-
-      data.forEach((day) => {
-        if (logDate.getTime() === day.rawDate.getTime()) {
-          if (['sent', 'delivered', 'read'].includes(log.status)) day.sent += 1;
-          if (['delivered', 'read'].includes(log.status)) day.delivered += 1;
-          if (log.status === 'read') day.read += 1;
-          if (log.status === 'failed') day.failed += 1;
-        }
-      });
-    });
     return data;
   };
 
@@ -229,22 +292,38 @@ export default function Dashboard() {
       <div className="layout-grid-clean">
         {/* Left: Usage Trends Area Chart */}
         <div className="clean-card chart-card">
-          <div className="card-header-clean">
+          <div className="card-header-clean" style={{ flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 className="card-title-clean">Usage Trends</h2>
-              <p className="card-subtitle-clean">Last 30 days</p>
+              <p className="card-subtitle-clean">
+                {timeframe === 'Day' && "Today's hourly message activity (every 2 hours)"}
+                {timeframe === 'Week' && "Last 7 days daily message activity"}
+                {timeframe === 'Month' && "Last 30 days daily message activity"}
+              </p>
             </div>
-            <div className="timeframe-toggle">
-              {['Day', 'Week', 'Month'].map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setTimeframe(tab)}
-                  className={`timeframe-btn ${timeframe === tab ? 'timeframe-btn-active' : ''}`}
-                >
-                  {tab}
-                </button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0284c7' }} />
+                  Sent
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
+                  Delivered
+                </span>
+              </div>
+              <div className="timeframe-toggle">
+                {['Day', 'Week', 'Month'].map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setTimeframe(tab)}
+                    className={`timeframe-btn ${timeframe === tab ? 'timeframe-btn-active' : ''}`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -257,22 +336,48 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="coolTrendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0284c7" stopOpacity={0.12} />
+                    <linearGradient id="sentTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0284c7" stopOpacity={0.22} />
                       <stop offset="95%" stopColor="#0284c7" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="deliveredTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.22} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                  <XAxis
+                    dataKey="date"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    dy={10}
+                    minTickGap={timeframe === 'Month' ? 24 : 10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    allowDecimals={false}
+                  />
                   <Tooltip content={<CustomTooltip />} />
                   <Area
                     type="monotone"
                     dataKey="sent"
+                    name="Sent"
                     stroke="#0284c7"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                     fillOpacity={1}
-                    fill="url(#coolTrendGrad)"
+                    fill="url(#sentTrendGrad)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="delivered"
+                    name="Delivered"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#deliveredTrendGrad)"
                   />
                 </AreaChart>
               </ResponsiveContainer>

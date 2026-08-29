@@ -110,6 +110,7 @@ export default function TemplateList() {
   const [buttons, setButtons] = useState([
     { id: 1, type: 'QUICK_REPLY', text: 'Order Now', url: '', phoneNumber: '' }
   ]);
+  const [currentWabaId, setCurrentWabaId] = useState('');
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -117,6 +118,7 @@ export default function TemplateList() {
       const { data } = await api.get('/api/template');
       if (data.success) {
         setTemplates(data.templates || []);
+        if (data.currentWabaId) setCurrentWabaId(data.currentWabaId);
       }
     } catch (e) {
       console.error(e);
@@ -356,6 +358,12 @@ export default function TemplateList() {
           <p style={{ color: '#64748b', fontSize: 14, margin: '4px 0 0 0' }}>
             Manage, build, and synchronize your WhatsApp templates right here on Zest Eat
           </p>
+          {currentWabaId && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12, color: '#475569', background: '#f1f5f9', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}>
+              <span style={{ color: '#16a34a', fontWeight: 700 }}>● Active Meta Account:</span>
+              <span style={{ color: '#0f172a', fontFamily: 'monospace' }}>{currentWabaId}</span>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>

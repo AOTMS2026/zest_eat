@@ -1,30 +1,116 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
-import { BarChart2, Calendar, FileText, CheckCircle2, Clock, Eye, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { BarChart2, Calendar, FileText, CheckCircle2, Clock, Eye, AlertCircle, RefreshCw, Send } from 'lucide-react';
 
 export default function Analytics() {
   const [logs, setLogs] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const fetchStats = async () => {
+    try {
+      const { data } = await api.get('/api/template/stats/summary');
+      if (data.success) {
+        setStats(data.stats);
+        const sortedLogs = (data.chartData || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setLogs(sortedLogs);
+      }
+    } catch (e) {
+      console.error('Failed to load analytics logs', e);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { data } = await api.get('/api/template/stats/summary');
-        if (data.success) {
-          // Sort logs newest first
-          const sortedLogs = (data.chartData || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-          setLogs(sortedLogs);
-        }
-      } catch (e) { console.error('Failed to load logs', e); }
-      setLoading(false);
-    };
     fetchStats();
   }, []);
 
+  const handleSyncAnalytics = async () => {
+    setIsSyncing(true);
+    try {
+      await api.post('/api/template/sync-meta');
+      await fetchStats();
+      toast.success('Analytics synchronized with live Meta data! 🔄');
+    } catch (err) {
+      await fetchStats();
+      toast.error(err.response?.data?.message || 'Failed to sync analytics');
+    }
+    setIsSyncing(false);
+  };
+
+  const sentCount = stats?.sent || 0;
+  const deliveredCount = stats?.delivered || 0;
+  const readCount = stats?.read || 0;
+  const failedCount = stats?.failed || 0;
+
+  const deliveredRate = sentCount > 0 ? Math.round((deliveredCount / sentCount) * 100) : 0;
+  const readRate = deliveredCount > 0 ? Math.round((readCount / deliveredCount) * 100) : 0;
+
   return (
     <div className="dashboard-page animate-in">
-      <div className="section-title-container">
-        <h2 className="section-title" style={{ fontSize: 24 }}><BarChart2 /> Delivery Analytics</h2>
+      <div className="section-title-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <h2 className="section-title" style={{ fontSize: 24 }}><BarChart2 /> Delivery Analytics</h2>
+          {stats?.wabaId && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 6, fontSize: 12, color: '#475569', background: '#f1f5f9', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}>
+              <span style={{ color: '#16a34a', fontWeight: 700 }}>● Active Meta Account:</span>
+              <span style={{ color: '#0f172a', fontFamily: 'monospace' }}>{stats.wabaId}</span>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSyncAnalytics}
+          disabled={isSyncing}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 16px',
+            borderRadius: 8,
+            border: '1px solid #e2e8f0',
+            background: '#ffffff',
+            color: '#0f172a',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: isSyncing ? 'not-allowed' : 'pointer',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <RefreshCw size={14} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+          {isSyncing ? 'Syncing Live Data...' : 'Sync Live Analytics'}
+        </button>
+      </div>
+
+      {/* Summary KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
+        <div className="clean-card" style={{ padding: 20, borderRadius: 12, background: '#fff', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Total Sent</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', marginTop: 8 }}>{sentCount.toLocaleString()}</div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Meta WhatsApp messages</div>
+        </div>
+
+        <div className="clean-card" style={{ padding: 20, borderRadius: 12, background: '#fff', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 700, textTransform: 'uppercase' }}>Delivered</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a', marginTop: 8 }}>{deliveredCount.toLocaleString()}</div>
+          <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>{deliveredRate}% Delivery Rate</div>
+        </div>
+
+        <div className="clean-card" style={{ padding: 20, borderRadius: 12, background: '#fff', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 12, color: '#8b5cf6', fontWeight: 700, textTransform: 'uppercase' }}>Read</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#8b5cf6', marginTop: 8 }}>{readCount.toLocaleString()}</div>
+          <div style={{ fontSize: 11, color: '#8b5cf6', marginTop: 4 }}>{readRate}% Read Rate</div>
+        </div>
+
+        <div className="clean-card" style={{ padding: 20, borderRadius: 12, background: '#fff', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 12, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}>Failed</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#ef4444', marginTop: 8 }}>{failedCount.toLocaleString()}</div>
+          <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>Undelivered or invalid numbers</div>
+        </div>
       </div>
       
       <div className="dash-card">

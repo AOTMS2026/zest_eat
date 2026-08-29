@@ -8,6 +8,7 @@ const templateSchema = new mongoose.Schema({
   components:      { type: Array, default: [] }, // Stores the raw Meta components array
   metaTemplateId:  { type: String }, // Returned from Meta after creation
   metaStatus:      { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'DRAFT'], default: 'DRAFT' },
+  wabaId:          { type: String }, // Meta WhatsApp Business Account ID
 
   // Original fields (kept for legacy/fallback)
   title:           { type: String }, 

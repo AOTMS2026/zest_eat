@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import api from '../api';
 import toast from 'react-hot-toast';
-import { Send, Eye, Link as LinkIcon, Phone, Image as ImageIcon, Video, FileText, Type } from 'lucide-react';
+import { Send, Eye, Link as LinkIcon, Phone, Image as ImageIcon, Video, FileText, Type, RefreshCw } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
 /* ── User-Provided Styled Action Button (Navy + Yellow Hover) ── */
@@ -132,6 +132,8 @@ export default function Campaigns() {
     } catch (e) { console.error('Failed to load contacts', e); }
   };
 
+  const [syncingTemplates, setSyncingTemplates] = useState(false);
+
   const loadTemplates = async () => {
     try {
       const { data } = await api.get('/api/template');
@@ -142,6 +144,24 @@ export default function Campaigns() {
          }
       }
     } catch (e) { console.error(e); }
+  };
+
+  const handleSyncTemplates = async () => {
+    setSyncingTemplates(true);
+    try {
+      const { data } = await api.post('/api/template/sync-meta');
+      if (data?.templates) {
+        setTemplates(data.templates);
+        if (data.templates.length > 0) setActivePreviewId(data.templates[0]._id);
+      } else {
+        await loadTemplates();
+      }
+      toast.success(data?.message || 'Synced Meta templates! 🔄');
+    } catch (e) {
+      await loadTemplates();
+      toast.error(e.response?.data?.message || 'Failed to sync templates');
+    }
+    setSyncingTemplates(false);
   };
 
   const checkStatus = async (id) => {
@@ -246,7 +266,30 @@ export default function Campaigns() {
         {/* LIST PANEL */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div style={S.card}>
-            <div style={S.title}>Saved Templates</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ ...S.title, margin: 0 }}>Saved Templates</div>
+              <button
+                type="button"
+                onClick={handleSyncTemplates}
+                disabled={syncingTemplates}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  fontWeight: 600,
+                  fontSize: 12,
+                  cursor: syncingTemplates ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <RefreshCw size={13} style={{ animation: syncingTemplates ? 'spin 1s linear infinite' : 'none' }} />
+                {syncingTemplates ? 'Syncing...' : 'Sync Meta Templates'}
+              </button>
+            </div>
             {templates.length === 0 ? (
               <p style={{ color: '#aaa', fontSize: 13 }}>No templates created yet.</p>
             ) : (

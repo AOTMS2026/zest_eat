@@ -3,7 +3,7 @@ import api from '../api';
 import toast from 'react-hot-toast';
 import {
   Send, CheckCircle, CheckCheck, XCircle,
-  Clock, Bot, Wifi, WifiOff, Zap, Users, Loader2
+  Clock, Bot, Wifi, WifiOff, Zap, Users, Loader2, RefreshCw
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './Dashboard.css';
@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [wpp, setWpp] = useState({ status: 'DISCONNECTED' });
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState('Month');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const pollStatus = useCallback(async () => {
     try {
@@ -68,6 +69,19 @@ export default function Dashboard() {
       toast.error('Failed to load dashboard data');
     }
     setLoading(false);
+  };
+
+  const handleSyncAll = async () => {
+    setIsSyncing(true);
+    try {
+      const syncRes = await api.post('/api/template/sync-meta');
+      await Promise.all([loadData(), pollStatus()]);
+      toast.success(syncRes.data?.message || 'Synchronized live Meta account data! 🔄');
+    } catch (err) {
+      await loadData();
+      toast.error(err.response?.data?.message || 'Failed to sync Meta data');
+    }
+    setIsSyncing(false);
   };
 
   const getChartData = () => {
@@ -154,11 +168,43 @@ export default function Dashboard() {
   return (
     <div className="dashboard-page animate-in">
       {/* ── Top Greeting Header ─────────────────────── */}
-      <div className="dash-header-section">
-        <h1 className="dash-title">Good Evening, Zest Eat</h1>
-        <p className="dash-subtitle">
-          Your agents handled <span className="dash-highlight-dark">{(stats?.sent ?? 0).toLocaleString()} messages</span> this month with <span className="dash-highlight-success">{successRate}% success</span>
-        </p>
+      <div className="dash-header-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <h1 className="dash-title">Good Evening, Zest Eat</h1>
+          <p className="dash-subtitle">
+            Your agents handled <span className="dash-highlight-dark">{(stats?.sent ?? 0).toLocaleString()} messages</span> this month with <span className="dash-highlight-success">{successRate}% success</span>
+          </p>
+          {stats?.wabaId && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12, color: '#475569', background: '#f1f5f9', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}>
+              <span style={{ color: '#16a34a', fontWeight: 700 }}>● Active Meta Account:</span>
+              <span style={{ color: '#0f172a', fontFamily: 'monospace' }}>{stats.wabaId}</span>
+              {stats.phoneId && <span style={{ color: '#64748b' }}>({stats.phoneId})</span>}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleSyncAll}
+          disabled={isSyncing}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 18px',
+            borderRadius: 10,
+            border: '1px solid #e2e8f0',
+            background: '#ffffff',
+            color: '#0f172a',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: isSyncing ? 'not-allowed' : 'pointer',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <RefreshCw size={15} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+          {isSyncing ? 'Syncing with Meta...' : 'Sync Meta Data'}
+        </button>
       </div>
 
       {/* ── 6 Clean White Stat Cards ─────────────────── */}

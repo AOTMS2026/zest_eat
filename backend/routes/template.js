@@ -7,6 +7,7 @@ const Contact  = require('../models/Contact');
 const { getClient, initWhatsApp, getStatus } = require('../utils/whatsappService');
 const { ConversationFlow } = require('../utils/conversationFlow');
 const { createTemplateOnMeta, getTemplateStatusFromMeta, uploadMediaToMeta, fetchAllTemplatesFromMeta } = require('../utils/metaTemplateService');
+const { uploadToCloudinary, uploadUrlToCloudinary } = require('../utils/cloudinaryService');
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '../uploads/campaigns/'),
@@ -144,9 +145,18 @@ router.post('/schedule', upload.single('image'), async (req, res) => {
   next.setHours(hh, mm, 0, 0);
   if (next <= new Date()) next.setDate(next.getDate() + 1);
 
+  let cloudinaryUrl = '';
+  if (req.file) {
+    try {
+      cloudinaryUrl = await uploadToCloudinary(req.file.path, 'zest_eat_schedules');
+    } catch (e) {
+      console.error('Cloudinary schedule upload failed:', e.message);
+    }
+  }
+
   const template = new Template({
     title: title || 'Fresh Stock Available!', message, footer: footer || '',
-    imageUrl: req.file ? `/uploads/campaigns/${req.file.filename}` : '',
+    imageUrl: cloudinaryUrl || (req.file ? `/uploads/campaigns/${req.file.filename}` : ''),
     contacts: phoneList, status: 'scheduled',
     isScheduled: true, scheduleTime,
     repeatDaily: repeatDaily === 'true' || repeatDaily === true,
@@ -209,7 +219,15 @@ router.post('/meta', upload.single('media'), async (req, res) => {
 
   try {
     // 1. Upload media if provided
+    let cloudinaryUrl = null;
     if (req.file) {
+      // Upload to Cloudinary for permanent storage and preview
+      try {
+        cloudinaryUrl = await uploadToCloudinary(req.file.path, 'zest_eat_templates');
+      } catch (err) {
+        console.error('Cloudinary template upload failed:', err.message);
+      }
+
       const handle = await uploadMediaToMeta(req.file.path, req.file.mimetype, req.file.size);
       
       // Inject handle into HEADER component
@@ -238,7 +256,7 @@ router.post('/meta', upload.single('media'), async (req, res) => {
       language,
       category,
       components,
-      imageUrl: req.file ? `/uploads/${req.file.filename}` : '', // Save the local path
+      imageUrl: cloudinaryUrl || (req.file ? `/uploads/${req.file.filename}` : ''),
       mediaId, // Save the Meta media ID for sending
       metaTemplateId: metaResponse.id,
       metaStatus: metaResponse.status || 'PENDING',
@@ -355,9 +373,31 @@ router.post('/sync-meta', async (req, res) => {
         existing.wabaId = currentWaba;
         if (bodyComp?.text) existing.message = bodyComp.text;
         if (footerComp?.text) existing.footer = footerComp.text;
+
+        // Auto-host to Cloudinary if not already on Cloudinary
+        const handleUrl = headerComp?.example?.header_handle?.[0];
+        if (!existing.imageUrl || !existing.imageUrl.includes('cloudinary.com')) {
+          if (handleUrl && handleUrl.startsWith('http')) {
+            try {
+              const cloudUrl = await uploadUrlToCloudinary(handleUrl, 'zest_eat_templates');
+              if (cloudUrl) existing.imageUrl = cloudUrl;
+            } catch (e) {}
+          }
+        }
+
         await existing.save();
         syncedCount++;
       } else {
+        let initialImage = '';
+        const handleUrl = headerComp?.example?.header_handle?.[0];
+        if (handleUrl && handleUrl.startsWith('http')) {
+          try {
+            initialImage = await uploadUrlToCloudinary(handleUrl, 'zest_eat_templates') || handleUrl;
+          } catch (e) {
+            initialImage = handleUrl;
+          }
+        }
+
         const created = await Template.create({
           name: mt.name,
           language: mt.language,
@@ -369,7 +409,7 @@ router.post('/sync-meta', async (req, res) => {
           title: mt.name,
           message: bodyComp?.text || mt.name,
           footer: footerComp?.text || '',
-          imageUrl: headerComp?.example?.header_handle?.[0] || '',
+          imageUrl: initialImage,
           status: 'draft'
         });
 

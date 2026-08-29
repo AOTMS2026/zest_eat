@@ -243,10 +243,12 @@ export default function Campaigns() {
       pHeaderText = headerComp.text || '';
       if (['IMAGE', 'VIDEO'].includes(pHeaderType)) {
         pMediaUrl = previewData.imageUrl;
-        if (pMediaUrl && !pMediaUrl.includes('/campaigns/') && pMediaUrl.startsWith('/uploads/')) {
-           pMediaUrl = pMediaUrl.replace('/uploads/', '/uploads/campaigns/');
+        if (pMediaUrl && !pMediaUrl.startsWith('http')) {
+          if (!pMediaUrl.includes('/campaigns/') && pMediaUrl.startsWith('/uploads/')) {
+            pMediaUrl = pMediaUrl.replace('/uploads/', '/uploads/campaigns/');
+          }
+          pMediaUrl = `https://zest-eat.onrender.com${pMediaUrl}`;
         }
-        if (pMediaUrl) pMediaUrl = `https://zest-eat.onrender.com${pMediaUrl}`;
       }
     }
     

@@ -1018,7 +1018,25 @@ export default function TemplateList() {
                 <tbody>
                   {templates.map((t) => (
                     <tr key={t._id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                      <td style={{ padding: '16px', fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{t.name}</td>
+                      <td style={{ padding: '16px', fontWeight: 700, color: '#0f172a', fontSize: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          {t.imageUrl ? (
+                            <img
+                              src={t.imageUrl.startsWith('http') ? t.imageUrl : `https://zest-eat.onrender.com${t.imageUrl}`}
+                              alt={t.name}
+                              style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'cover', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                            />
+                          ) : (
+                            <div style={{ width: 38, height: 38, borderRadius: 8, background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', flexShrink: 0 }}>
+                              <LayoutTemplate size={16} />
+                            </div>
+                          )}
+                          <div>
+                            <div>{t.name}</div>
+                            {t.language && <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>{t.language}</div>}
+                          </div>
+                        </div>
+                      </td>
                       <td style={{ padding: '16px', color: '#64748b', fontSize: 13 }}>
                         <span
                           style={{

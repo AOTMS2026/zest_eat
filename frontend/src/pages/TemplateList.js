@@ -131,10 +131,13 @@ export default function TemplateList() {
   const handleSyncAll = async () => {
     setSyncing(true);
     try {
+      const { data } = await api.post('/api/template/sync-meta');
+      if (data?.templates) setTemplates(data.templates);
+      else await loadTemplates();
+      toast.success(data?.message || 'Templates synchronized with Meta successfully! 🔄');
+    } catch (err) {
       await loadTemplates();
-      toast.success('Templates synchronized from data successfully! 🔄');
-    } catch {
-      toast.error('Failed to sync templates');
+      toast.error(err.response?.data?.message || 'Failed to sync templates with Meta');
     }
     setSyncing(false);
   };
@@ -146,6 +149,17 @@ export default function TemplateList() {
       toast.success(`Template status: ${data.status || 'Updated'}`);
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed to sync status');
+    }
+  };
+
+  const handleDeleteTemplate = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete template "${name}"?`)) return;
+    try {
+      await api.delete(`/api/template/${id}`);
+      toast.success('Template deleted');
+      loadTemplates();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to delete template');
     }
   };
 
@@ -1050,7 +1064,7 @@ export default function TemplateList() {
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '16px' }}>
+                      <td style={{ padding: '16px', display: 'flex', gap: 8, alignItems: 'center' }}>
                         <button
                           type="button"
                           onClick={() => checkStatus(t._id)}
@@ -1067,6 +1081,24 @@ export default function TemplateList() {
                           }}
                         >
                           Sync Status
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTemplate(t._id, t.name)}
+                          style={{
+                            padding: '6px 10px',
+                            background: '#fff1f2',
+                            border: '1px solid #fecdd3',
+                            borderRadius: 6,
+                            color: '#e11d48',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            transition: 'all 0.15s',
+                          }}
+                          title="Delete template"
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>

@@ -23,18 +23,50 @@ const getMetaConfig = () => {
 const createTemplateOnMeta = async (name, language, category, components) => {
   const config = getMetaConfig();
   
+  // Ensure components with variables have proper example data required by Meta
+  const processedComponents = (components || []).map(c => {
+    if (c.type === 'BODY' && c.text) {
+      const varMatches = c.text.match(/\{\{(\d+)\}\}/g);
+      if (varMatches && varMatches.length > 0 && (!c.example || !c.example.body_text)) {
+        return {
+          ...c,
+          example: {
+            body_text: [varMatches.map((_, idx) => `Customer ${idx + 1}`)]
+          }
+        };
+      }
+    }
+    return c;
+  });
+
   const payload = {
     name,
     language,
     category,
-    components
+    components: processedComponents
   };
 
   try {
     const response = await axios.post(config.url, payload, { headers: config.headers });
     return response.data; 
   } catch (error) {
-    console.error('❌ [WA] Meta Template Creation Error:', error.response?.data || error.message);
+    const errData = error.response?.data?.error;
+    console.error('❌ [WA] Meta Template Creation Error:', JSON.stringify(errData || error.message, null, 2));
+    throw error;
+  }
+};
+
+const fetchAllTemplatesFromMeta = async () => {
+  const config = getMetaConfig();
+  try {
+    const response = await axios.get(config.url, {
+      headers: config.headers,
+      params: { limit: 100 }
+    });
+    return response.data?.data || [];
+  } catch (error) {
+    const errData = error.response?.data?.error;
+    console.error('❌ [WA] Meta Fetch All Templates Error:', JSON.stringify(errData || error.message, null, 2));
     throw error;
   }
 };
@@ -115,5 +147,6 @@ module.exports = {
   createTemplateOnMeta,
   getTemplateStatusFromMeta,
   uploadMediaToMeta,
-  uploadMediaForSending
+  uploadMediaForSending,
+  fetchAllTemplatesFromMeta
 };

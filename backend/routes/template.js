@@ -6,7 +6,7 @@ const Template = require('../models/Template');
 const Contact  = require('../models/Contact');
 const { getClient, initWhatsApp, getStatus } = require('../utils/whatsappService');
 const { ConversationFlow } = require('../utils/conversationFlow');
-const { createTemplateOnMeta, getTemplateStatusFromMeta, uploadMediaToMeta } = require('../utils/metaTemplateService');
+const { createTemplateOnMeta, getTemplateStatusFromMeta, uploadMediaToMeta, fetchAllTemplatesFromMeta } = require('../utils/metaTemplateService');
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '../uploads/campaigns/'),
@@ -157,6 +157,15 @@ router.delete('/schedule/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+router.delete('/:id', async (req, res) => {
+  try {
+    await Template.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Template deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/', async (req, res) => {
   const templates = await Template.find({ isScheduled: { $ne: true } }).sort('-createdAt');
   res.json({ success: true, templates });
@@ -288,6 +297,57 @@ router.post('/import-meta', async (req, res) => {
   }
 });
 
+// POST /api/template/sync-meta
+// Synchronize all templates directly from Meta Cloud API into the database
+router.post('/sync-meta', async (req, res) => {
+  try {
+    const metaTemplates = await fetchAllTemplatesFromMeta();
+    let syncedCount = 0;
+
+    for (const mt of metaTemplates) {
+      const existing = await Template.findOne({
+        $or: [{ metaTemplateId: mt.id }, { name: mt.name }]
+      });
+
+      const bodyComp = mt.components?.find(c => c.type === 'BODY');
+      const footerComp = mt.components?.find(c => c.type === 'FOOTER');
+      const headerComp = mt.components?.find(c => c.type === 'HEADER');
+
+      if (existing) {
+        existing.metaTemplateId = mt.id;
+        existing.metaStatus = mt.status || existing.metaStatus;
+        existing.components = mt.components || existing.components;
+        existing.language = mt.language || existing.language;
+        existing.category = mt.category || existing.category;
+        if (bodyComp?.text) existing.message = bodyComp.text;
+        if (footerComp?.text) existing.footer = footerComp.text;
+        await existing.save();
+        syncedCount++;
+      } else {
+        await Template.create({
+          name: mt.name,
+          language: mt.language,
+          category: mt.category,
+          components: mt.components || [],
+          metaTemplateId: mt.id,
+          metaStatus: mt.status || 'APPROVED',
+          title: mt.name,
+          message: bodyComp?.text || mt.name,
+          footer: footerComp?.text || '',
+          imageUrl: headerComp?.example?.header_handle?.[0] || '',
+          status: 'draft'
+        });
+        syncedCount++;
+      }
+    }
+
+    const all = await Template.find({ isScheduled: { $ne: true } }).sort('-createdAt');
+    res.json({ success: true, count: syncedCount, templates: all, message: `Successfully synced ${syncedCount} templates from Meta!` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.response?.data?.error?.message || error.message });
+  }
+});
+
 // GET /api/template/meta/:id/status
 // Check the approval status of a Meta template
 router.get('/meta/:id/status', async (req, res) => {
@@ -295,6 +355,13 @@ router.get('/meta/:id/status', async (req, res) => {
     const template = await Template.findById(req.params.id);
     if (!template || !template.metaTemplateId) {
       return res.status(404).json({ success: false, message: 'Meta template not found' });
+    }
+
+    if (template.metaTemplateId.startsWith('local_')) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This template was saved as a local draft because initial Meta sync failed. Please recreate or edit it.' 
+      });
     }
     
     const metaData = await getTemplateStatusFromMeta(template.metaTemplateId);
@@ -306,7 +373,7 @@ router.get('/meta/:id/status', async (req, res) => {
     
     res.json({ success: true, status: template.metaStatus });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.response?.data?.error?.message || error.message });
   }
 });
 

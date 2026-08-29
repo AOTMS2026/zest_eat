@@ -33,10 +33,28 @@ const runMetaBroadcast = async (template, phoneList) => {
   for (let i = 0; i < phoneList.length; i++) {
     const phone = phoneList[i];
     try {
-      await ConversationFlow.startMetaTemplate(phone, template);
+      const sendRes = await ConversationFlow.startMetaTemplate(phone, template);
+      const wamid = sendRes?.messages?.[0]?.id;
+      if (wamid) {
+        const MessageLog = require('../models/MessageLog');
+        await MessageLog.findOneAndUpdate(
+          { wamid },
+          {
+            $set: {
+              wamid,
+              phone,
+              status: 'sent',
+              timestamp: new Date(),
+              phoneId: process.env.META_WA_PHONE_NUMBER_ID,
+              wabaId: process.env.META_WA_BUSINESS_ACCOUNT_ID
+            }
+          },
+          { upsert: true, new: true }
+        );
+      }
       await Contact.findOneAndUpdate({ phone: phone }, { $inc: { templatesSent: 1 }, lastStatus: 'sent' }, { upsert: true });
       sent++;
-      console.log(`✅ [${i + 1}/${phoneList.length}] Sent Meta Template to ${phone}`);
+      console.log(`✅ [${i + 1}/${phoneList.length}] Sent Meta Template to ${phone} (wamid: ${wamid})`);
     } catch (e) {
       failed++;
       console.error(`❌ [${i + 1}/${phoneList.length}] Failed ${phone}:`, e.message);

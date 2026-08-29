@@ -34,44 +34,67 @@ const startMetaTemplate = async (phone, template) => {
   
   if (headerComponent) {
     let mediaId = template.mediaId;
-    
-    // If it doesn't have a mediaId but has an imageUrl (from before we added this feature), upload it retroactively
-    if (!mediaId && template.imageUrl) {
-        let localPath = template.imageUrl;
-        if (localPath.startsWith('/uploads/')) {
-           localPath = localPath.replace('/uploads/', '/uploads/campaigns/');
-           const absolutePath = path.join(__dirname, '..', localPath);
-           if (fs.existsSync(absolutePath)) {
-               try {
-                   console.log(`Uploading local image to Meta to get Media ID...`);
-                   mediaId = await uploadMediaForSending(absolutePath, mime.lookup(absolutePath) || 'image/jpeg');
-                   // Save back to DB so we don't have to upload it again!
-                   await Template.findByIdAndUpdate(template._id, { mediaId });
-               } catch(e) {
-                   console.error('Failed to fallback upload:', e.message);
-               }
-           }
-        }
-    }
-    
-    // If we STILL don't have a mediaId (e.g., completely old template without imageUrl)
-    if (!mediaId) {
-      console.log(`⚠️ Template '${template.name}' requires a media header but mediaId is missing.`);
+    let mediaLink = null;
+
+    // 1. If template has a direct public URL in imageUrl or in example header_handle
+    const handleUrl = headerComponent.example?.header_handle?.[0];
+    if (typeof template.imageUrl === 'string' && template.imageUrl.startsWith('http')) {
+      mediaLink = template.imageUrl;
+    } else if (typeof handleUrl === 'string' && handleUrl.startsWith('http')) {
+      mediaLink = handleUrl;
     }
 
-    if (mediaId) {
-      components.push({
-        type: 'header',
-        parameters: [
-          {
-            type: headerComponent.format.toLowerCase(),
-            [headerComponent.format.toLowerCase()]: {
-              id: mediaId
+    // 2. If it's a local file and we have no mediaId or mediaLink, try uploading or using public server URL
+    if (!mediaId && !mediaLink && template.imageUrl) {
+      let localPath = template.imageUrl;
+      if (localPath.startsWith('/uploads/')) {
+        let absolutePath = path.join(__dirname, '..', localPath);
+        if (!fs.existsSync(absolutePath)) {
+          absolutePath = path.join(__dirname, '..', localPath.replace('/uploads/', '/uploads/campaigns/'));
+        }
+        if (fs.existsSync(absolutePath)) {
+          try {
+            console.log(`Uploading local media to Meta to get Media ID...`);
+            mediaId = await uploadMediaForSending(absolutePath, mime.lookup(absolutePath) || 'image/jpeg');
+            if (mediaId) {
+              await Template.findByIdAndUpdate(template._id, { mediaId });
             }
+          } catch (e) {
+            console.error('Failed to upload local media:', e.message);
           }
-        ]
-      });
+        }
+      }
+      if (!mediaId && template.imageUrl.startsWith('/uploads/')) {
+        mediaLink = `https://zest-eat.onrender.com${template.imageUrl}`;
+      }
     }
+
+    // 3. Fallback: ensure a valid image link is always provided so Meta doesn't fail with format mismatch
+    if (!mediaId && !mediaLink) {
+      if (handleUrl && handleUrl.startsWith('http')) {
+        mediaLink = handleUrl;
+      } else {
+        mediaLink = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800';
+      }
+    }
+
+    const mediaType = headerComponent.format.toLowerCase();
+    const mediaParam = {};
+    if (mediaId) {
+      mediaParam[mediaType] = { id: mediaId };
+    } else if (mediaLink) {
+      mediaParam[mediaType] = { link: mediaLink };
+    }
+
+    components.push({
+      type: 'header',
+      parameters: [
+        {
+          type: mediaType,
+          ...mediaParam
+        }
+      ]
+    });
   }
 
   // Check if template body has variables ({{1}})
@@ -86,7 +109,7 @@ const startMetaTemplate = async (phone, template) => {
   }
 
   try {
-    await sendMetaTemplate(sp, template.name, template.language, components);
+    return await sendMetaTemplate(sp, template.name, template.language, components);
   } catch (e) {
     console.log(`❌ Failed to send Meta Template to ${sp}:`, e.message);
     throw e;

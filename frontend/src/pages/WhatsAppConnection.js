@@ -13,23 +13,25 @@ export default function WhatsAppConnection() {
   });
 
   useEffect(() => {
-    // In a real app we'd fetch the non-sensitive public config from the backend
-    // Since we don't have a specific endpoint for config yet, we will mock the presentation
-    // But we will poll the actual status!
-    const fetchStatus = async () => {
+    const fetchData = async () => {
       try {
-        const { data } = await api.get('/api/whatsapp/status');
-        setWppStatus(data.status);
-      } catch {}
+        const [statusRes, configRes] = await Promise.all([
+          api.get('/api/whatsapp/status'),
+          api.get('/api/whatsapp/config')
+        ]);
+        if (statusRes.data?.status) setWppStatus(statusRes.data.status);
+        if (configRes.data) {
+          setConfig({
+            wabaId: configRes.data.wabaId || '',
+            phoneId: configRes.data.phoneId || '',
+            version: configRes.data.version || 'v19.0'
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load WhatsApp status/config:', err);
+      }
     };
-    fetchStatus();
-    
-    // Hardcoded for demo/display purposes based on existing Meta implementation
-    setConfig({
-      wabaId: '1207473174896357', // Example or could be fetched
-      phoneId: '**********6211',
-      version: 'v19.0'
-    });
+    fetchData();
   }, []);
 
   return (
@@ -71,7 +73,7 @@ export default function WhatsAppConnection() {
                         <div style={{ fontWeight: 600, color: '#334155' }}>Phone Number ID</div>
                         <div style={{ fontSize: 13, color: '#64748b' }}>The specific phone number ID used for broadcasting</div>
                     </div>
-                    <div style={{ fontWeight: 700, color: '#0f172a' }}>Configured via .env</div>
+                    <div style={{ fontWeight: 700, color: '#0f172a' }}>{config.phoneId || 'Configured via .env'}</div>
                 </div>
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 16, borderBottom: '1px solid #f1f5f9' }}>

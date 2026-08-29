@@ -21,6 +21,17 @@ router.get('/host-info', (req, res) => {
   res.json({ success: true, phone: process.env.META_WA_PHONE_NUMBER_ID, name: 'Meta WhatsApp App', id: process.env.META_WA_PHONE_NUMBER_ID });
 });
 
+router.get('/config', (req, res) => {
+  const phoneId = process.env.META_WA_PHONE_NUMBER_ID || '';
+  const maskedPhone = phoneId.length > 4 ? `**********${phoneId.slice(-4)}` : phoneId;
+  res.json({
+    success: true,
+    wabaId: process.env.META_WA_BUSINESS_ACCOUNT_ID || 'Not configured',
+    phoneId: maskedPhone || 'Not configured',
+    version: process.env.META_GRAPH_VERSION || 'v19.0'
+  });
+});
+
 // ── Webhooks ──────────────────────────────────────────────────────────────────
 
 // Webhook Verification (Required by Meta)

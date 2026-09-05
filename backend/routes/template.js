@@ -33,30 +33,51 @@ const runMetaBroadcast = async (template, phoneList) => {
 
   // Meta Cloud API is stateless and doesn't need socket connection waiting!
   for (let i = 0; i < phoneList.length; i++) {
-    const phone = phoneList[i];
+    const rawPhone = phoneList[i];
+    let cleanP = String(rawPhone).replace(/\D/g, '');
+    if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
+
     try {
-      const sendRes = await ConversationFlow.startMetaTemplate(phone, template);
-      const wamid = sendRes?.messages?.[0]?.id;
-      if (wamid) {
-        const MessageLog = require('../models/MessageLog');
-        await MessageLog.findOneAndUpdate(
-          { wamid },
-          {
-            $set: {
-              wamid,
-              phone,
-              status: 'sent',
-              timestamp: new Date(),
-              phoneId: process.env.META_WA_PHONE_NUMBER_ID,
-              wabaId: process.env.META_WA_BUSINESS_ACCOUNT_ID
-            }
-          },
-          { upsert: true, new: true }
-        );
+      const sendRes = await ConversationFlow.startMetaTemplate(rawPhone, template);
+      const wamid = sendRes?.messages?.[0]?.id || `tmpl_${Date.now()}_${i}`;
+
+      const MessageLog = require('../models/MessageLog');
+      const bodyComp = Array.isArray(template.components) ? template.components.find(c => c.type === 'BODY') : null;
+      const headerComp = Array.isArray(template.components) ? template.components.find(c => c.type === 'HEADER') : null;
+
+      let tmplText = template.body_text || bodyComp?.text || template.message || template.title || 'Meta Template Message';
+      let tmplHeaderImg = template.imageUrl || template.header_image_url || (headerComp?.example?.header_handle?.[0] || '');
+
+      let parsedButtons = [];
+      try {
+        parsedButtons = typeof template.buttons === 'string' ? JSON.parse(template.buttons) : (template.buttons || []);
+      } catch (bErr) {
+        parsedButtons = [];
       }
-      await Contact.findOneAndUpdate({ phone: phone }, { $inc: { templatesSent: 1 }, lastStatus: 'sent' }, { upsert: true });
+
+      await MessageLog.findOneAndUpdate(
+        { wamid },
+        {
+          $set: {
+            wamid,
+            phone: cleanP,
+            direction: 'OUTGOING',
+            status: 'sent',
+            text: tmplText,
+            templateName: template.name || 'Meta Template',
+            headerImageUrl: tmplHeaderImg,
+            buttons: parsedButtons,
+            timestamp: new Date(),
+            phoneId: process.env.META_WA_PHONE_NUMBER_ID,
+            wabaId: process.env.META_WA_BUSINESS_ACCOUNT_ID
+          }
+        },
+        { upsert: true, new: true }
+      );
+
+      await Contact.findOneAndUpdate({ phone: cleanP }, { $inc: { templatesSent: 1 }, lastStatus: 'sent' }, { upsert: true });
       sent++;
-      console.log(`✅ [${i + 1}/${phoneList.length}] Sent Meta Template to ${phone} (wamid: ${wamid})`);
+      console.log(`✅ [${i + 1}/${phoneList.length}] Sent Meta Template '${template.name}' to ${cleanP} (wamid: ${wamid})`);
     } catch (e) {
       failed++;
       console.error(`❌ [${i + 1}/${phoneList.length}] Failed ${phone}:`, e.message);

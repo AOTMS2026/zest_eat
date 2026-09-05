@@ -20,24 +20,52 @@ const getMetaConfig = async () => {
   };
 };
 
-const createTemplateOnMeta = async (name, language, category, components) => {
-  const config = await getMetaConfig();
-  
-  // Ensure components with variables have proper example data required by Meta
-  const processedComponents = (components || []).map(c => {
+const sanitizeComponentsForMeta = (components) => {
+  return (components || []).map(c => {
     if (c.type === 'BODY' && c.text) {
       const varMatches = c.text.match(/\{\{(\d+)\}\}/g);
-      if (varMatches && varMatches.length > 0 && (!c.example || !c.example.body_text)) {
+      const uniqueVars = varMatches ? Array.from(new Set(varMatches)) : [];
+      
+      if (uniqueVars.length > 0) {
+        const existingSamples = c.example && c.example.body_text && c.example.body_text[0] ? c.example.body_text[0] : [];
+        const sanitizedSamples = uniqueVars.map((_, idx) => existingSamples[idx] || `Customer_${idx + 1}`);
         return {
           ...c,
-          example: {
-            body_text: [varMatches.map((_, idx) => `Customer ${idx + 1}`)]
-          }
+          example: { body_text: [sanitizedSamples] }
         };
+      } else {
+        const cleaned = { ...c };
+        delete cleaned.example;
+        return cleaned;
       }
     }
+    
+    if (c.type === 'BUTTONS' && Array.isArray(c.buttons)) {
+      const sanitizedButtons = c.buttons.slice(0, 3).map(b => {
+        const btnText = (b.text || 'Button').trim().slice(0, 25);
+        if (b.type === 'PHONE_NUMBER') {
+          let phone = String(b.phone_number || '+918019942233').replace(/[^\d+]/g, '');
+          if (!phone.startsWith('+')) phone = '+' + phone;
+          if (phone.length < 5) phone = '+918019942233';
+          return { type: 'PHONE_NUMBER', text: btnText, phone_number: phone };
+        }
+        if (b.type === 'URL') {
+          let url = (b.url || 'https://aotms.com').trim();
+          if (!url.startsWith('http')) url = 'https://' + url;
+          return { type: 'URL', text: btnText, url };
+        }
+        return { type: 'QUICK_REPLY', text: btnText };
+      });
+      return { ...c, buttons: sanitizedButtons };
+    }
+    
     return c;
   });
+};
+
+const createTemplateOnMeta = async (name, language, category, components) => {
+  const config = await getMetaConfig();
+  const processedComponents = sanitizeComponentsForMeta(components);
 
   const payload = {
     name,

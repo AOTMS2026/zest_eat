@@ -221,10 +221,9 @@ router.post('/meta', upload.single('media'), async (req, res) => {
   }
 
   try {
-    // 1. Upload media if provided
+    // 1. Media handling & component sanitization
     let cloudinaryUrl = null;
     if (req.file) {
-      // Upload to Cloudinary for permanent storage and preview
       try {
         cloudinaryUrl = await uploadToCloudinary(req.file.path, 'zest_eat_templates');
       } catch (err) {
@@ -233,11 +232,20 @@ router.post('/meta', upload.single('media'), async (req, res) => {
 
       const handle = await uploadMediaToMeta(req.file.path, req.file.mimetype, req.file.size);
       
-      // Inject handle into HEADER component
-      const headerIndex = components.findIndex(c => c.type === 'HEADER');
+      let headerIndex = components.findIndex(c => c.type === 'HEADER');
       if (headerIndex !== -1) {
+        components[headerIndex].format = 'IMAGE';
         components[headerIndex].example = { header_handle: [handle] };
+      } else {
+        components.unshift({
+          type: 'HEADER',
+          format: 'IMAGE',
+          example: { header_handle: [handle] }
+        });
       }
+    } else {
+      // Remove any HEADER component claiming IMAGE format without an image example handle
+      components = components.filter(c => !(c.type === 'HEADER' && c.format === 'IMAGE' && (!c.example || !c.example.header_handle)));
     }
 
     const metaResponse = await createTemplateOnMeta(name, language, category, components);

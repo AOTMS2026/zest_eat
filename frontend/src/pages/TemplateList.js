@@ -97,7 +97,7 @@ export default function TemplateList() {
     name: '',
     category: 'MARKETING', // MARKETING or UTILITY
     language: 'en_US',     // English only
-    headerType: 'IMAGE',   // Default to IMAGE for marketing
+    headerType: 'NONE',    // Default to NONE (or IMAGE when file is selected)
     headerText: '',
     bodyText: 'Hello {{1}}, check out our special fresh offers at Zest Eat today! Valid until midnight.',
     footerText: 'Zest Eat • Reply STOP to unsubscribe',
@@ -241,6 +241,11 @@ export default function TemplateList() {
           text: formData.headerText.trim(),
         });
       } else if (formData.headerType === 'IMAGE') {
+        if (!headerImage) {
+          toast.error('Please upload an image file for Image Header, or change Header Type to NONE');
+          setSubmitting(false);
+          return;
+        }
         components.push({
           type: 'HEADER',
           format: 'IMAGE',
@@ -310,7 +315,7 @@ export default function TemplateList() {
           name: '',
           category: 'MARKETING',
           language: 'en_US',
-          headerType: 'IMAGE',
+          headerType: 'NONE',
           headerText: '',
           bodyText: 'Hello {{1}}, check out our special fresh offers at Zest Eat today!',
           footerText: 'Zest Eat • Reply STOP to unsubscribe',

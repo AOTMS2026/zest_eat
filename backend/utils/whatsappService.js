@@ -187,8 +187,7 @@ const sendListMenu = async (phone, options) => {
   return await sendRequest(payload);
 };
 
-// Send an official Meta Template Message
-const sendMetaTemplate = async (phone, templateName, languageCode = 'en_US', components = []) => {
+const sendMetaTemplate = async (phone, templateName, languageCode = 'en', components = []) => {
   const to = formatPhone(phone);
   console.log(`📤 [WA] Sending Meta Template '${templateName}' to ${to}`);
   

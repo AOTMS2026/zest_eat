@@ -4,7 +4,7 @@ const templateSchema = new mongoose.Schema({
   // New Meta specific fields
   name:            { type: String, required: true }, // lowercase and underscores only
   category:        { type: String, required: true, enum: ['MARKETING', 'UTILITY', 'AUTHENTICATION'] },
-  language:        { type: String, required: true, default: 'en_US' },
+  language:        { type: String, required: true, default: 'en' },
   components:      { type: Array, default: [] }, // Stores the raw Meta components array
   metaTemplateId:  { type: String }, // Returned from Meta after creation
   metaStatus:      { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'DRAFT'], default: 'DRAFT' },

@@ -147,13 +147,16 @@ router.post('/webhook', async (req, res) => {
         const incomingPhoneId = valueObj.metadata?.phone_number_id || creds.phoneId;
         const incomingWabaId = body.entry[0].id || creds.wabaId;
 
+        let cleanP = String(phone).replace(/\D/g, '');
+        if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
+
         try {
           await MessageLog.findOneAndUpdate(
             { wamid },
             { 
               $set: {
                 wamid,
-                phone,
+                phone: cleanP,
                 direction: 'INCOMING',
                 status: 'received',
                 text,
@@ -200,13 +203,16 @@ router.post('/webhook', async (req, res) => {
         const incomingPhoneId = body.entry[0].changes[0].value.metadata?.phone_number_id || creds.phoneId;
         const incomingWabaId = body.entry[0].id || creds.wabaId;
 
+        let cleanStatusPhone = String(phone).replace(/\D/g, '');
+        if (cleanStatusPhone.startsWith('91') && cleanStatusPhone.length === 12) cleanStatusPhone = cleanStatusPhone.slice(2);
+
         try {
           await MessageLog.findOneAndUpdate(
             { wamid },
             { 
               $set: {
                 wamid,
-                phone,
+                phone: cleanStatusPhone,
                 status,
                 timestamp,
                 errorCode,
@@ -240,8 +246,9 @@ router.get('/messages', async (req, res) => {
     const filter = {};
     if (phone) {
       let cleanP = String(phone).replace(/\D/g, '');
-      if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
-      filter.phone = cleanP;
+      let p10 = cleanP.length === 12 && cleanP.startsWith('91') ? cleanP.slice(2) : cleanP;
+      let p12 = cleanP.length === 10 ? '91' + cleanP : cleanP;
+      filter.phone = { $in: [p10, p12, cleanP] };
     }
     const logs = await MessageLog.find(filter).sort({ timestamp: 1 }).limit(200);
     res.json({ success: true, count: logs.length, logs });

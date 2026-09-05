@@ -53,7 +53,37 @@ router.post('/upload-excel', upload.single('file'), async (req, res) => {
   }
 });
 
-// Save contacts
+// POST /api/contacts - Create single contact
+router.post('/', async (req, res) => {
+  const { name, phone, email, address, source, segment, identity } = req.body;
+  if (!phone) return res.status(400).json({ success: false, message: 'Phone number is required' });
+
+  let cleanP = String(phone).replace(/\D/g, '');
+  if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
+
+  const customIdentity = (identity && String(identity).trim()) ? String(identity).trim() : 'SAP FICO';
+
+  try {
+    const contact = await Contact.findOneAndUpdate(
+      { phone: cleanP },
+      {
+        phone: cleanP,
+        name: name ? name.trim() : '',
+        email: email ? email.trim() : '',
+        address: address ? address.trim() : '',
+        source: source || 'manual',
+        segment: segment || 'new',
+        identity: customIdentity
+      },
+      { upsert: true, new: true }
+    );
+    res.status(201).json({ success: true, contact, message: 'Contact saved successfully!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Save bulk contacts
 router.post('/save', async (req, res) => {
   const { contacts, phones, source = 'manual' } = req.body;
   let added = 0, skipped = 0;
@@ -61,17 +91,43 @@ router.post('/save', async (req, res) => {
     for (const c of contacts) {
       try {
         if (!c.phone) continue;
-        await Contact.findOneAndUpdate({ phone: c.phone }, { phone: c.phone, name: c.name || '', email: c.email || '', source }, { upsert: true, new: true });
+        let cleanP = String(c.phone).replace(/\D/g, '');
+        if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
+        const contactIdentity = (c.identity && String(c.identity).trim()) ? String(c.identity).trim() : 'SAP FICO';
+        await Contact.findOneAndUpdate(
+          { phone: cleanP }, 
+          { 
+            phone: cleanP, 
+            name: c.name ? String(c.name).trim() : '', 
+            email: c.email ? String(c.email).trim() : '', 
+            identity: contactIdentity, 
+            source 
+          }, 
+          { upsert: true, new: true }
+        );
         added++;
       } catch { skipped++; }
     }
   } else if (phones && Array.isArray(phones)) {
     for (const phone of phones) {
-      try { await Contact.findOneAndUpdate({ phone }, { phone, source }, { upsert: true, new: true }); added++; }
+      try {
+        let cleanP = String(phone).replace(/\D/g, '');
+        if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
+        await Contact.findOneAndUpdate({ phone: cleanP }, { phone: cleanP, identity: 'SAP FICO', source }, { upsert: true, new: true }); added++;
+      }
       catch { skipped++; }
     }
   } else { return res.status(400).json({ success: false, message: 'No contacts or phones provided' }); }
   res.json({ success: true, added, skipped });
+});
+
+// POST /api/contacts/migrate-identity - Update existing General contacts to SAP FICO
+router.post('/migrate-identity', async (req, res) => {
+  const result = await Contact.updateMany(
+    { $or: [{ identity: 'General' }, { identity: '' }, { identity: null }, { identity: { $exists: false } }] },
+    { $set: { identity: 'SAP FICO' } }
+  );
+  res.json({ success: true, modifiedCount: result.modifiedCount, message: `Updated ${result.modifiedCount} existing contacts to SAP FICO identity.` });
 });
 
 // Get all contacts (with optional segment/optedOut filter)
@@ -81,6 +137,28 @@ router.get('/', async (req, res) => {
   if (req.query.optedOut !== undefined) filter.optedOut = req.query.optedOut === 'true';
   const contacts = await Contact.find(filter).sort('-createdAt');
   res.json({ success: true, contacts });
+});
+
+// Update contact
+router.put('/:id', async (req, res) => {
+  const { name, phone, email, address, segment, identity } = req.body;
+  const updateData = {};
+  if (name !== undefined) updateData.name = name.trim();
+  if (phone) {
+    let cleanP = String(phone).replace(/\D/g, '');
+    if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
+    updateData.phone = cleanP;
+  }
+  if (email !== undefined) updateData.email = email.trim();
+  if (address !== undefined) updateData.address = address.trim();
+  if (segment) updateData.segment = segment;
+  if (identity !== undefined) {
+    updateData.identity = (identity && String(identity).trim()) ? String(identity).trim() : 'SAP FICO';
+  }
+
+  const contact = await Contact.findByIdAndUpdate(req.params.id, updateData, { new: true });
+  if (!contact) return res.status(404).json({ success: false, message: 'Contact not found' });
+  res.json({ success: true, contact, message: 'Contact updated successfully' });
 });
 
 // Delete contact
@@ -95,8 +173,33 @@ router.post('/send-message', async (req, res) => {
   const { phone, message } = req.body;
   if (!phone || !message) return res.status(400).json({ success: false, message: 'phone and message required' });
   try {
-    await sendTextMessage(phone, message);
-    res.json({ success: true, message: 'Message sent!' });
+    const metaRes = await sendTextMessage(phone, message);
+    const wamid = metaRes?.messages?.[0]?.id || `direct_${Date.now()}`;
+
+    let cleanP = String(phone).replace(/\D/g, '');
+    if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
+
+    try {
+      const MessageLog = require('../models/MessageLog');
+      await MessageLog.findOneAndUpdate(
+        { wamid },
+        {
+          $set: {
+            wamid,
+            phone: cleanP,
+            direction: 'OUTGOING',
+            status: 'sent',
+            text: message,
+            timestamp: new Date()
+          }
+        },
+        { upsert: true, new: true }
+      );
+    } catch (logErr) {
+      console.error('Failed to log outbound direct message to MessageLog:', logErr);
+    }
+
+    res.json({ success: true, message: 'Message sent!', metaRes });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -168,8 +168,26 @@ router.post('/webhook', async (req, res) => {
             },
             { upsert: true, new: true }
           );
+
+          // Auto-upsert Contact in MongoDB so incoming message senders appear in contacts list
+          const Contact = require('../models/Contact');
+          const updateObj = { lastStatus: 'received', updatedAt: new Date() };
+          if (senderName && senderName !== 'Customer') updateObj.name = senderName;
+
+          await Contact.findOneAndUpdate(
+            { phone: cleanP },
+            { 
+              $set: updateObj,
+              $setOnInsert: {
+                phone: cleanP,
+                identity: 'new',
+                source: 'inbound_whatsapp'
+              }
+            },
+            { upsert: true, new: true }
+          );
         } catch (dbErr) {
-          console.error('Failed to save incoming message to MessageLog:', dbErr);
+          console.error('Failed to save incoming message or contact:', dbErr);
         }
       }
       

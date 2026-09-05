@@ -55,6 +55,13 @@ const runMetaBroadcast = async (template, phoneList) => {
         parsedButtons = [];
       }
 
+      if ((!parsedButtons || parsedButtons.length === 0) && Array.isArray(template.components)) {
+        const btnComp = template.components.find(c => c.type === 'BUTTONS');
+        if (btnComp && Array.isArray(btnComp.buttons)) {
+          parsedButtons = btnComp.buttons;
+        }
+      }
+
       await MessageLog.findOneAndUpdate(
         { wamid },
         {

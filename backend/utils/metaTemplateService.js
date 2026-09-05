@@ -20,21 +20,58 @@ const getMetaConfig = async () => {
   };
 };
 
+function autoFixBodyVariables(text, existingSamples = []) {
+  if (!text) return { text: text, sampleArray: [] };
+  const matches = text.match(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g);
+  if (!matches || matches.length === 0) {
+    return { text: text, sampleArray: [] };
+  }
+  const varMap = new Map();
+  let counter = 1;
+  matches.forEach(m => {
+    const rawKey = m.replace(/[\{\}\s]/g, '');
+    if (!varMap.has(rawKey)) {
+      varMap.set(rawKey, counter++);
+    }
+  });
+  let fixedText = text.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, p1) => {
+    const rawKey = p1.trim();
+    const seqNum = varMap.get(rawKey);
+    return '{{' + seqNum + '}}';
+  });
+  if (fixedText.trim().startsWith('{{')) {
+    fixedText = 'Hello ' + fixedText.trim();
+  }
+  if (fixedText.trim().endsWith('}}')) {
+    fixedText = fixedText.trim() + ' • AOTMS';
+  }
+  const sampleArray = Array.from(varMap.keys()).map((key, idx) => {
+    if (existingSamples[idx] && String(existingSamples[idx]).trim()) {
+      return String(existingSamples[idx]).trim();
+    }
+    const lowerKey = key.toLowerCase();
+    if (lowerKey.includes('name')) return 'Customer Name';
+    if (lowerKey.includes('code') || lowerKey.includes('offer')) return 'AOTMS50';
+    if (lowerKey.includes('amount') || lowerKey.includes('price')) return '999';
+    return 'Sample_' + (idx + 1);
+  });
+  return { text: fixedText, sampleArray };
+}
+
 const sanitizeComponentsForMeta = (components) => {
   return (components || []).map(c => {
     if (c.type === 'BODY' && c.text) {
-      const varMatches = c.text.match(/\{\{(\d+)\}\}/g);
-      const uniqueVars = varMatches ? Array.from(new Set(varMatches)) : [];
+      const existingSamples = c.example && c.example.body_text && c.example.body_text[0] ? c.example.body_text[0] : [];
+      const fixed = autoFixBodyVariables(c.text, existingSamples);
       
-      if (uniqueVars.length > 0) {
-        const existingSamples = c.example && c.example.body_text && c.example.body_text[0] ? c.example.body_text[0] : [];
-        const sanitizedSamples = uniqueVars.map((_, idx) => existingSamples[idx] || `Customer_${idx + 1}`);
+      if (fixed.sampleArray && fixed.sampleArray.length > 0) {
         return {
           ...c,
-          example: { body_text: [sanitizedSamples] }
+          text: fixed.text,
+          example: { body_text: [fixed.sampleArray] }
         };
       } else {
-        const cleaned = { ...c };
+        const cleaned = { ...c, text: fixed.text };
         delete cleaned.example;
         return cleaned;
       }

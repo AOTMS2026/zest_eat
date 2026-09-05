@@ -64,7 +64,7 @@ const fetchAllTemplatesFromMeta = async () => {
   try {
     const response = await axios.get(config.url, {
       headers: config.headers,
-      params: { limit: 100 }
+      params: { limit: 100, fields: 'id,name,status,category,language,components' }
     });
     return response.data?.data || [];
   } catch (error) {

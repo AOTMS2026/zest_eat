@@ -428,6 +428,7 @@ router.post('/sync-meta', async (req, res) => {
     if (currentWaba && activeMetaIds.length > 0) {
       await Template.deleteMany({
         metaTemplateId: { $exists: true, $ne: null, $nin: activeMetaIds },
+        metaStatus: { $nin: ['PENDING', 'IN_REVIEW'] },
         isScheduled: { $ne: true }
       });
     }

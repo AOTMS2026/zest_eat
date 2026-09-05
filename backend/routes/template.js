@@ -334,9 +334,9 @@ router.post('/import-meta', async (req, res) => {
   }
 });
 
-// POST /api/template/sync-meta
+// POST /api/template/sync-meta AND /api/template/sync
 // Synchronize all templates directly from Meta Cloud API into the database
-router.post('/sync-meta', async (req, res) => {
+const syncMetaTemplatesHandler = async (req, res) => {
   try {
     const creds = await getMetaCredentials();
     const currentWaba = creds.wabaId;
@@ -449,7 +449,10 @@ router.post('/sync-meta', async (req, res) => {
     const errorMsg = error.response?.data?.error?.message || error.message || 'Failed to sync with Meta';
     res.status(500).json({ success: false, message: `Meta Sync Error: ${errorMsg}` });
   }
-});
+};
+
+router.post('/sync-meta', syncMetaTemplatesHandler);
+router.post('/sync', syncMetaTemplatesHandler);
 
 // GET /api/template/meta/:id/status
 // Check the approval status of a Meta template

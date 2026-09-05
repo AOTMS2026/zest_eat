@@ -114,12 +114,13 @@ router.get('/webhook', async (req, res) => {
   }
 });
 
-// Receive incoming messages
+// Receive incoming messages & status updates from Meta Webhook
 router.post('/webhook', async (req, res) => {
   try {
     let body = req.body;
 
     if (body.object) {
+      // 1. Process Incoming Customer Messages
       if (
         body.entry &&
         body.entry[0].changes &&
@@ -127,9 +128,49 @@ router.post('/webhook', async (req, res) => {
         body.entry[0].changes[0].value.messages &&
         body.entry[0].changes[0].value.messages[0]
       ) {
-        // Acknowledge payload
+        const valueObj = body.entry[0].changes[0].value;
+        const msgObj = valueObj.messages[0];
+        const contactObj = valueObj.contacts?.[0] || {};
+        const phone = msgObj.from;
+        const wamid = msgObj.id;
+        const msgType = msgObj.type;
+        let text = '';
+        if (msgType === 'text') text = msgObj.text?.body || '';
+        else if (msgType === 'button') text = msgObj.button?.text || msgObj.button?.payload || 'Button Clicked';
+        else if (msgType === 'interactive') text = msgObj.interactive?.button_reply?.title || msgObj.interactive?.list_reply?.title || 'Interactive Reply';
+        else text = `[${msgType.toUpperCase()} Message]`;
+
+        const senderName = contactObj.profile?.name || 'Customer';
+        console.log(`📩 [WEBHOOK INCOMING MESSAGE] From ${senderName} (${phone}): ${text}`);
+
+        const creds = await getMetaCredentials();
+        const incomingPhoneId = valueObj.metadata?.phone_number_id || creds.phoneId;
+        const incomingWabaId = body.entry[0].id || creds.wabaId;
+
+        try {
+          await MessageLog.findOneAndUpdate(
+            { wamid },
+            { 
+              $set: {
+                wamid,
+                phone,
+                direction: 'INCOMING',
+                status: 'received',
+                text,
+                senderName,
+                timestamp: new Date(parseInt(msgObj.timestamp) * 1000),
+                phoneId: incomingPhoneId,
+                wabaId: incomingWabaId
+              }
+            },
+            { upsert: true, new: true }
+          );
+        } catch (dbErr) {
+          console.error('Failed to save incoming message to MessageLog:', dbErr);
+        }
       }
       
+      // 2. Process Message Delivery & Read Statuses
       if (
         body.entry &&
         body.entry[0].changes &&
@@ -152,7 +193,7 @@ router.post('/webhook', async (req, res) => {
           errorMessage = statusObj.errors[0].title || statusObj.errors[0].message || 'Unknown error';
         }
         
-        console.log(`\n📊 [WEBHOOK STATUS] ${phone} | ${status.toUpperCase()} | wamid: ${wamid}`);
+        console.log(`📊 [WEBHOOK STATUS] ${phone} | ${status.toUpperCase()} | wamid: ${wamid}`);
         if (errorCode) console.error(`❌ Meta Error: [${errorCode}] ${errorMessage}`);
         
         const creds = await getMetaCredentials();
@@ -189,6 +230,23 @@ router.post('/webhook', async (req, res) => {
   } catch (error) {
     console.error('❌ Webhook error:', error);
     res.sendStatus(500);
+  }
+});
+
+// GET /api/whatsapp/messages - Retrieve chat logs for real-time live chat polling
+router.get('/messages', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    const filter = {};
+    if (phone) {
+      let cleanP = String(phone).replace(/\D/g, '');
+      if (cleanP.startsWith('91') && cleanP.length === 12) cleanP = cleanP.slice(2);
+      filter.phone = cleanP;
+    }
+    const logs = await MessageLog.find(filter).sort({ timestamp: 1 }).limit(200);
+    res.json({ success: true, count: logs.length, logs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

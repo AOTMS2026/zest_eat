@@ -1,32 +1,34 @@
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
+const { getMetaCredentials, verifyMetaConnection } = require('./metaConfigHelper');
 
-// Get Meta config from env
-const getMetaConfig = () => {
-  const token = process.env.META_WA_ACCESS_TOKEN;
-  const phoneId = process.env.META_WA_PHONE_NUMBER_ID;
-  const version = process.env.META_GRAPH_VERSION || 'v19.0';
+// Get Meta config dynamically
+const getMetaConfig = async () => {
+  const creds = await getMetaCredentials();
   
-  if (!token || !phoneId) {
-    console.warn('⚠️ [WA] Meta API credentials missing in .env');
+  if (!creds.token || !creds.phoneId) {
+    console.warn('⚠️ [WA] Meta API credentials missing');
   }
   
   return {
-    url: `https://graph.facebook.com/${version}/${phoneId}/messages`,
-    mediaUrl: `https://graph.facebook.com/${version}/${phoneId}/media`,
+    creds,
+    url: `https://graph.facebook.com/${creds.version}/${creds.phoneId}/messages`,
+    mediaUrl: `https://graph.facebook.com/${creds.version}/${creds.phoneId}/media`,
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${creds.token}`,
       'Content-Type': 'application/json'
     }
   };
 };
 
-const getStatus = () => {
-  const token = process.env.META_WA_ACCESS_TOKEN;
-  const phoneId = process.env.META_WA_PHONE_NUMBER_ID;
-  if (token && phoneId) return 'CONNECTED';
-  return 'DISCONNECTED';
+const getStatus = async () => {
+  const creds = await getMetaCredentials();
+  if (!creds.token || !creds.phoneId || !creds.wabaId) return 'DISCONNECTED';
+  
+  // Live ping check
+  const testRes = await verifyMetaConnection(creds);
+  return testRes.reachable ? 'CONNECTED' : 'DISCONNECTED';
 };
 
 // Format phone for Meta API (just the number without @s.whatsapp.net, must include country code)
@@ -41,9 +43,9 @@ const formatPhone = (phone) => {
 const isSelfSend = () => false;
 
 const sendRequest = async (payload) => {
-  const config = getMetaConfig();
+  const config = await getMetaConfig();
   if (!config.url || !config.headers.Authorization.includes('Bearer ')) {
-    throw new Error('Meta API credentials missing');
+    throw new Error('Meta API credentials missing or invalid');
   }
   
   try {
@@ -82,8 +84,7 @@ const sendImageMessage = async (phone, imagePath, caption = '') => {
     mediaObj = { link: imagePath };
   } else {
     // If it's a local file, we need to upload it to Meta first to get a media ID
-    // (This requires a separate upload step in Meta API)
-    const config = getMetaConfig();
+    const config = await getMetaConfig();
     const formData = new FormData();
     formData.append('file', fs.createReadStream(imagePath));
     formData.append('messaging_product', 'whatsapp');
@@ -117,8 +118,6 @@ const sendImageMessage = async (phone, imagePath, caption = '') => {
   return await sendRequest(payload);
 };
 
-// Note: Meta Cloud API Interactive Buttons require templates if outside 24h window
-// This is for inside 24h window (Free-form interactive messages)
 const sendButtons = async (phone, text, buttons, title = '', footer = '') => {
   const to = formatPhone(phone);
   
@@ -149,9 +148,6 @@ const sendButtons = async (phone, text, buttons, title = '', footer = '') => {
 };
 
 const sendPoll = async (phone, name, choices) => {
-  // Meta Cloud doesn't support interactive polls natively through the generic API in the same way.
-  // Converting it to a list/button fallback or standard text.
-  // We'll fall back to sending a text message with options.
   const to = formatPhone(phone);
   const optionsText = choices.map((c, i) => `${i + 1}. ${c}`).join('\n');
   const fullText = `*${name}*\n\n${optionsText}\n\n_Please reply with the option number._`;

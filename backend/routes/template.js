@@ -8,6 +8,7 @@ const { getClient, initWhatsApp, getStatus } = require('../utils/whatsappService
 const { ConversationFlow } = require('../utils/conversationFlow');
 const { createTemplateOnMeta, getTemplateStatusFromMeta, uploadMediaToMeta, fetchAllTemplatesFromMeta } = require('../utils/metaTemplateService');
 const { uploadToCloudinary, uploadUrlToCloudinary } = require('../utils/cloudinaryService');
+const { getMetaCredentials } = require('../utils/metaConfigHelper');
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '../uploads/campaigns/'),
@@ -195,7 +196,8 @@ router.delete('/:id', async (req, res) => {
 });
 
 router.get('/', async (req, res) => {
-  const currentWaba = process.env.META_WA_BUSINESS_ACCOUNT_ID;
+  const creds = await getMetaCredentials();
+  const currentWaba = creds.wabaId;
   const filter = { isScheduled: { $ne: true } };
   if (currentWaba) {
     filter.wabaId = currentWaba;
@@ -208,6 +210,7 @@ router.get('/', async (req, res) => {
 // Create a new template directly on Meta WhatsApp Cloud API
 router.post('/meta', upload.single('media'), async (req, res) => {
   let { name, language, category, components } = req.body;
+  const creds = await getMetaCredentials();
   
   if (typeof components === 'string') {
     components = JSON.parse(components);
@@ -260,9 +263,9 @@ router.post('/meta', upload.single('media'), async (req, res) => {
       mediaId, // Save the Meta media ID for sending
       metaTemplateId: metaResponse.id,
       metaStatus: metaResponse.status || 'PENDING',
-      wabaId: process.env.META_WA_BUSINESS_ACCOUNT_ID || '',
+      wabaId: creds.wabaId || '',
       title: name, // fallback display
-      message: 'Meta Template', // fallback
+      message: Array.isArray(components) ? (components.find(c => c.type === 'BODY')?.text || 'Meta Template') : 'Meta Template',
       status: 'draft'
     });
     
@@ -270,31 +273,15 @@ router.post('/meta', upload.single('media'), async (req, res) => {
     
     res.json({ success: true, template, message: 'Template submitted to Meta successfully!' });
   } catch (error) {
-    console.error('Meta Template API Error:', error.response?.data || error.message);
-    try {
-      const template = new Template({
-        name,
-        language: language || 'en_US',
-        category: category || 'MARKETING',
-        components,
-        imageUrl: req.file ? `/uploads/campaigns/${req.file.filename}` : '',
-        metaTemplateId: 'local_' + Date.now(),
-        metaStatus: 'PENDING',
-        title: name,
-        message: Array.isArray(components) ? (components.find(c => c.type === 'BODY')?.text || 'Template') : 'Template',
-        status: 'draft'
-      });
-      await template.save();
-      return res.json({ 
-        success: true, 
-        template, 
-        message: 'Template created successfully in Zest Eat! (Meta sync: ' + (error.response?.data?.error?.message || error.message) + ')' 
-      });
-    } catch (saveErr) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to create template' });
-    }
+    const errorMsg = error.metaError?.message || error.message || 'Failed to create template on Meta';
+    console.error('Meta Template API Error:', errorMsg);
+    return res.status(400).json({ 
+      success: false, 
+      message: `Meta API Error: ${errorMsg}` 
+    });
   }
 });
+
 
 // POST /api/template/import-meta
 // Import a template from Meta by its ID
@@ -343,7 +330,15 @@ router.post('/import-meta', async (req, res) => {
 // Synchronize all templates directly from Meta Cloud API into the database
 router.post('/sync-meta', async (req, res) => {
   try {
-    const currentWaba = process.env.META_WA_BUSINESS_ACCOUNT_ID;
+    const creds = await getMetaCredentials();
+    const currentWaba = creds.wabaId;
+    if (!currentWaba || !creds.token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Meta credentials missing. Please configure your WABA Account ID & Token in Settings.'
+      });
+    }
+
     const metaTemplates = await fetchAllTemplatesFromMeta();
     let syncedCount = 0;
     const activeMetaIds = metaTemplates.map(t => t.id);
@@ -421,13 +416,10 @@ router.post('/sync-meta', async (req, res) => {
       }
     }
 
-    // Clean up any templates not belonging to the current Meta account
+    // Clean up outdated templates belonging to other WABA accounts or deleted Meta IDs
     if (currentWaba && activeMetaIds.length > 0) {
       await Template.deleteMany({
-        $or: [
-          { wabaId: { $ne: currentWaba } },
-          { metaTemplateId: { $nin: activeMetaIds } }
-        ],
+        metaTemplateId: { $exists: true, $ne: null, $nin: activeMetaIds },
         isScheduled: { $ne: true }
       });
     }
@@ -445,7 +437,8 @@ router.post('/sync-meta', async (req, res) => {
       message: `Successfully synced ${all.length} templates for Meta Account (${currentWaba})!` 
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.response?.data?.error?.message || error.message });
+    const errorMsg = error.response?.data?.error?.message || error.message || 'Failed to sync with Meta';
+    res.status(500).json({ success: false, message: `Meta Sync Error: ${errorMsg}` });
   }
 });
 
